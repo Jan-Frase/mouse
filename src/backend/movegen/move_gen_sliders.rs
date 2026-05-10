@@ -1,7 +1,6 @@
 use crate::backend::caches::{
-    BISHOP_PEXT_INDEX, BISHOP_PEXT_MASK, BISHOP_XRAY_PEXT_INDEX, BISHOP_XRAY_PEXT_MASK,
-    PEXT_TABLE, PEXT_XRAY_TABLE, ROOK_PEXT_INDEX, ROOK_PEXT_MASK, ROOK_XRAY_PEXT_INDEX,
-    ROOK_XRAY_PEXT_MASK,
+    BISHOP_PEXT_INDEX, BISHOP_PEXT_MASK, BISHOP_XRAY_PEXT_INDEX, BISHOP_XRAY_PEXT_MASK, PEXT_TABLE,
+    PEXT_XRAY_TABLE, ROOK_PEXT_INDEX, ROOK_PEXT_MASK, ROOK_XRAY_PEXT_INDEX, ROOK_XRAY_PEXT_MASK,
 };
 use crate::backend::movegen::move_gen::convert_bitboard_to_moves;
 use crate::backend::types::bitboard::BitBoard;
@@ -65,7 +64,9 @@ fn slider_attacks_for_piece(
     square: Square,
 ) -> BitBoard {
     match piece_type {
-        Piece::Rook => get_slider_moves_at_square::<true>(square, friendly_pieces_bb, enemy_pieces_bb),
+        Piece::Rook => {
+            get_slider_moves_at_square::<true>(square, friendly_pieces_bb, enemy_pieces_bb)
+        }
         Piece::Bishop => {
             get_slider_moves_at_square::<false>(square, friendly_pieces_bb, enemy_pieces_bb)
         }

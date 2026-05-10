@@ -1,7 +1,7 @@
+use crate::backend::types::piece::{PROMOTABLE_PIECES, Piece};
+use crate::backend::types::square::{Square, get_file, square_to_string};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
-use crate::backend::types::piece::{Piece, PROMOTABLE_PIECES};
-use crate::backend::types::square::{get_file, square_to_string, Square};
 
 #[derive(Copy, Clone)]
 pub enum CastleType {
@@ -27,7 +27,7 @@ impl CastleType {
 /// One bit and thus three possible data points free!
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Moove {
-    bitfield: u16
+    bitfield: u16,
 }
 
 impl Moove {
@@ -39,7 +39,9 @@ impl Moove {
     }
 
     pub fn new_promotion(from: Square, to: Square, promotion_type: Piece) -> Moove {
-        Moove { bitfield: from as u16 | ((to as u16) << 6) | (promotion_type as u16) << 12 | 1 << 14 }
+        Moove {
+            bitfield: from as u16 | ((to as u16) << 6) | (promotion_type as u16) << 12 | 1 << 14,
+        }
     }
 
     pub fn get_from(&self) -> Square {
@@ -108,7 +110,9 @@ impl Display for Moove {
 /// Implements ordering. Needed to sort them when comparing with perftree output.
 /// This should only be called during debugging, not for performance-critical operations.
 impl PartialOrd for Moove {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Ord for Moove {
@@ -133,4 +137,3 @@ impl Ord for Moove {
         Ordering::Equal
     }
 }
-

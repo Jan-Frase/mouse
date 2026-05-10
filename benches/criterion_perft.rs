@@ -1,6 +1,6 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use mouse::backend::perft::perft;
-use mouse::{moves, State};
+use mouse::{State, moves};
 use perft_fixtures::perft_fixtures::FAST_PERFT;
 
 pub fn criterion_perft(c: &mut Criterion) {

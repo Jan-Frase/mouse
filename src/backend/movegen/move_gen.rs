@@ -3,11 +3,13 @@ use crate::backend::game_state::state::State;
 use crate::backend::movegen::check_decider::{get_checking_squares, is_in_check_on_square};
 use crate::backend::movegen::move_gen_king::gen_castles;
 use crate::backend::movegen::move_gen_pawn::gen_pawn_moves;
-use crate::backend::movegen::move_gen_sliders::{get_slider_moves, get_slider_xray_moves_at_square};
+use crate::backend::movegen::move_gen_sliders::{
+    get_slider_moves, get_slider_xray_moves_at_square,
+};
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::moove::Moove;
 use crate::backend::types::piece::Piece::*;
-use crate::backend::types::square::{back_by_one, Square};
+use crate::backend::types::square::{Square, back_by_one};
 
 const EXPECTED_MOVE_CAPACITY: usize = 50;
 const DOUBLE_CHECK_ATTACKERS: u32 = 2;
@@ -98,7 +100,10 @@ fn gen_king_moves(moves: &mut Vec<Moove>, state: &mut State, friendly_pieces_bb:
     for from_square in king_bb {
         let legal_targets_bb = KING_MOVES[from_square as usize] & !friendly_pieces_bb;
 
-        state.bb_mngr.get_piece_bb_mut(King).clear_square(from_square);
+        state
+            .bb_mngr
+            .get_piece_bb_mut(King)
+            .clear_square(from_square);
         state
             .bb_mngr
             .get_all_pieces_bb_off_mut(state.active_side)
@@ -110,7 +115,10 @@ fn gen_king_moves(moves: &mut Vec<Moove>, state: &mut State, friendly_pieces_bb:
             }
         }
 
-        state.bb_mngr.get_piece_bb_mut(King).fill_square(from_square);
+        state
+            .bb_mngr
+            .get_piece_bb_mut(King)
+            .fill_square(from_square);
         state
             .bb_mngr
             .get_all_pieces_bb_off_mut(state.active_side)
@@ -145,11 +153,13 @@ fn build_pin_masks(
     let straight_xray_bb = get_slider_xray_moves_at_square::<true>(king_square, occupied_bb);
     let diag_xray_bb = get_slider_xray_moves_at_square::<false>(king_square, occupied_bb);
 
-    let straight_xray_attackers_bb =
-        straight_xray_bb & (state.bb_mngr.get_piece_bb(Rook) | state.bb_mngr.get_piece_bb(Queen)) & enemy_pieces_bb;
+    let straight_xray_attackers_bb = straight_xray_bb
+        & (state.bb_mngr.get_piece_bb(Rook) | state.bb_mngr.get_piece_bb(Queen))
+        & enemy_pieces_bb;
 
-    let diag_xray_attackers_bb =
-        diag_xray_bb & (state.bb_mngr.get_piece_bb(Bishop) | state.bb_mngr.get_piece_bb(Queen)) & enemy_pieces_bb;
+    let diag_xray_attackers_bb = diag_xray_bb
+        & (state.bb_mngr.get_piece_bb(Bishop) | state.bb_mngr.get_piece_bb(Queen))
+        & enemy_pieces_bb;
 
     (
         build_pin_mask(straight_xray_attackers_bb, king_square),
@@ -191,11 +201,14 @@ fn gen_knight_moves(
     straight_pin_mask: BitBoard,
     diag_pin_mask: BitBoard,
 ) {
-    let knights = state.bb_mngr.get_colored_piece_bb(Knight, state.active_side)
+    let knights = state
+        .bb_mngr
+        .get_colored_piece_bb(Knight, state.active_side)
         & !(straight_pin_mask | diag_pin_mask);
 
     for from_square in knights {
-        let legal_targets_bb = KNIGHT_MOVES[from_square as usize] & check_mask & !friendly_pieces_bb;
+        let legal_targets_bb =
+            KNIGHT_MOVES[from_square as usize] & check_mask & !friendly_pieces_bb;
 
         convert_bitboard_to_moves(moves, from_square, legal_targets_bb);
     }
@@ -210,7 +223,9 @@ fn gen_bishop_and_queen_moves(
     straight_pin_mask: BitBoard,
     diag_pin_mask: BitBoard,
 ) {
-    let bishop_like_pieces_bb = state.bb_mngr.get_colored_piece_bb(Bishop, state.active_side)
+    let bishop_like_pieces_bb = state
+        .bb_mngr
+        .get_colored_piece_bb(Bishop, state.active_side)
         | state.bb_mngr.get_colored_piece_bb(Queen, state.active_side);
 
     get_slider_moves(
@@ -247,7 +262,11 @@ fn gen_rook_and_queen_moves(
     );
 }
 
-pub fn convert_bitboard_to_moves(moves: &mut Vec<Moove>, from_square: Square, moves_bitboard: BitBoard) {
+pub fn convert_bitboard_to_moves(
+    moves: &mut Vec<Moove>,
+    from_square: Square,
+    moves_bitboard: BitBoard,
+) {
     for to_square in moves_bitboard {
         moves.push(Moove::new(from_square, to_square));
     }

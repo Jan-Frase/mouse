@@ -1,9 +1,9 @@
 use std::fs;
 
-mod caches_non_sliders;
-mod caches_sliders;
 mod build_util;
 mod cache_between;
+mod caches_non_sliders;
+mod caches_sliders;
 
 const DIR_PATH: &str = "src/backend/";
 
@@ -20,7 +20,7 @@ fn main() {
     }
 
     let mut knight_moves = [0u64; 64];
-    for (square , knight_moves_for_square) in knight_moves.iter_mut().enumerate() {
+    for (square, knight_moves_for_square) in knight_moves.iter_mut().enumerate() {
         *knight_moves_for_square = caches_non_sliders::gen_knight_moves(square as i8);
     }
 
@@ -67,12 +67,10 @@ fn main() {
             caches_sliders::PEXT_TABLE_SIZE,
             array_to_string(&pext_data.pext_table)
         ),
-
         format!(
             "pub static BETWEEN_TABLE: [[BitBoard; SQUARES_AMOUNT]; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
             two_d_array_to_string(&between_cache)
         ),
-
         format!(
             "pub const ROOK_XRAY_PEXT_MASK: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
             array_to_string(&xray_pext_data.rook_pext_mask)
@@ -125,7 +123,7 @@ fn array_to_string<const N: usize>(array: &[u64; N]) -> String {
     string
 }
 
-fn two_d_array_to_string<const M: usize, const N: usize> (array: &[[u64; N]; M]) -> String {
+fn two_d_array_to_string<const M: usize, const N: usize>(array: &[[u64; N]; M]) -> String {
     let mut string = String::new();
     string.push('[');
 

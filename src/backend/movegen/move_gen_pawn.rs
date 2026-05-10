@@ -1,8 +1,8 @@
 use crate::backend::constants::{LEFT_SIDE_BB, RIGHT_SIDE_BB, SIDE_LENGTH};
-use crate::backend::types::moove::Moove;
-use crate::backend::types::bitboard::BitBoard;
 use crate::backend::game_state::state::State;
 use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
+use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::moove::Moove;
 use crate::backend::types::piece::Piece::{King, Pawn, Queen, Rook};
 use crate::backend::types::piece::{PROMOTABLE_PIECES, Side};
 use crate::backend::types::square::{Square, get_rank};
@@ -22,8 +22,9 @@ const PROMOTION_RANKS_BB: BitBoard = BitBoard {
 };
 
 const WHITE_DOUBLE_PUSH_BB: BitBoard = BitBoard { value: 0xff000000 };
-const BLACK_DOUBLE_PUSH_BB: BitBoard = BitBoard { value: 0xff00000000 };
-
+const BLACK_DOUBLE_PUSH_BB: BitBoard = BitBoard {
+    value: 0xff00000000,
+};
 
 pub fn gen_pawn_moves(
     moves: &mut Vec<Moove>,
@@ -44,10 +45,26 @@ pub fn gen_pawn_moves(
     };
 
     // single push
-    single_push(moves, active_color, occupancy_bb, checkmask, straight_pin_mask, pawn_bb & !diag_pin_mask, rank_offset);
+    single_push(
+        moves,
+        active_color,
+        occupancy_bb,
+        checkmask,
+        straight_pin_mask,
+        pawn_bb & !diag_pin_mask,
+        rank_offset,
+    );
 
     // double push
-    double_push(moves, active_color, occupancy_bb, checkmask, straight_pin_mask, pawn_bb & !diag_pin_mask, rank_offset);
+    double_push(
+        moves,
+        active_color,
+        occupancy_bb,
+        checkmask,
+        straight_pin_mask,
+        pawn_bb & !diag_pin_mask,
+        rank_offset,
+    );
 
     let mut possible_captures_bb = enemy_pieces_bb;
     let mut capture_checkmask = checkmask;
@@ -61,7 +78,7 @@ pub fn gen_pawn_moves(
         // 8/8/8/1Ppp3r/RK3p1k/8/4P1P1/8 w - c6 0 1
         let ep_pawn_square = match state.active_side {
             Side::White => ep_square - SIDE_LENGTH as u8,
-            Side::Black => ep_square + SIDE_LENGTH as u8
+            Side::Black => ep_square + SIDE_LENGTH as u8,
         };
         let ep_pawn_square = BitBoard::new_from_square(ep_pawn_square);
         if (ep_pawn_square & checkmask).is_not_empty() {
@@ -121,9 +138,8 @@ fn is_ep_legal(state: &State) -> bool {
     let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
 
     let friendly_king = state.bb_mngr.get_colored_piece_bb(King, active_side);
-    let opponent_sliders =
-        state.bb_mngr.get_colored_piece_bb(Queen, opponent_side)
-            | state.bb_mngr.get_colored_piece_bb(Rook, opponent_side);
+    let opponent_sliders = state.bb_mngr.get_colored_piece_bb(Queen, opponent_side)
+        | state.bb_mngr.get_colored_piece_bb(Rook, opponent_side);
 
     if (friendly_king & double_push_rank).is_empty()
         || (opponent_sliders & double_push_rank).is_empty()
@@ -136,8 +152,7 @@ fn is_ep_legal(state: &State) -> bool {
     let right_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !RIGHT_SIDE_BB) << 1);
 
     let friendly_occupancy = state.bb_mngr.get_all_pieces_bb_off(active_side);
-    let opponent_occupancy =
-        state.bb_mngr.get_all_pieces_bb_off(opponent_side) & !captured_pawn_bb;
+    let opponent_occupancy = state.bb_mngr.get_all_pieces_bb_off(opponent_side) & !captured_pawn_bb;
 
     let king_square = friendly_king.clone().next().unwrap();
 
@@ -173,7 +188,7 @@ fn single_push(
     };
     // cant go there if something is there or if the checkmask forbids it
     push_pawn_bb &= !occupancy_bb & checkmask_bb;
-    pawn_bb_to_moves_no_promotion(moves, push_pawn_bb &!PROMOTION_RANKS_BB, 0, rank_offset);
+    pawn_bb_to_moves_no_promotion(moves, push_pawn_bb & !PROMOTION_RANKS_BB, 0, rank_offset);
     pawn_bb_to_moves_promotion(moves, push_pawn_bb & PROMOTION_RANKS_BB, 0, rank_offset);
 
     let mut push_pawn_bb = match active_color {
@@ -182,7 +197,7 @@ fn single_push(
     };
     // cant go there if something is there or if the checkmask forbids it
     push_pawn_bb &= !occupancy_bb & checkmask_bb & straight_pin_mask;
-    pawn_bb_to_moves_no_promotion(moves, push_pawn_bb &!PROMOTION_RANKS_BB, 0, rank_offset);
+    pawn_bb_to_moves_no_promotion(moves, push_pawn_bb & !PROMOTION_RANKS_BB, 0, rank_offset);
     pawn_bb_to_moves_promotion(moves, push_pawn_bb & PROMOTION_RANKS_BB, 0, rank_offset);
 }
 
@@ -197,23 +212,32 @@ fn double_push(
 ) {
     let double_push_bb = match active_color {
         Side::White => {
-            (((pawn_bb & WHITE_PAWN_START_RANK_BB & !straight_pin_mask) << 8) & !occupancy_bb) << 8 & !occupancy_bb
+            (((pawn_bb & WHITE_PAWN_START_RANK_BB & !straight_pin_mask) << 8) & !occupancy_bb) << 8
+                & !occupancy_bb
         }
         Side::Black => {
-            (((pawn_bb & BLACK_PAWN_START_RANK_BB & !straight_pin_mask) >> 8) & !occupancy_bb) >> 8 & !occupancy_bb
+            (((pawn_bb & BLACK_PAWN_START_RANK_BB & !straight_pin_mask) >> 8) & !occupancy_bb) >> 8
+                & !occupancy_bb
         }
     };
     pawn_bb_to_moves_no_promotion(moves, double_push_bb & checkmask_bb, 0, 2 * rank_offset);
 
     let double_push_bb = match active_color {
         Side::White => {
-            (((pawn_bb & WHITE_PAWN_START_RANK_BB & straight_pin_mask) << 8) & !occupancy_bb) << 8 & !occupancy_bb
+            (((pawn_bb & WHITE_PAWN_START_RANK_BB & straight_pin_mask) << 8) & !occupancy_bb) << 8
+                & !occupancy_bb
         }
         Side::Black => {
-            (((pawn_bb & BLACK_PAWN_START_RANK_BB & straight_pin_mask) >> 8) & !occupancy_bb) >> 8 & !occupancy_bb
+            (((pawn_bb & BLACK_PAWN_START_RANK_BB & straight_pin_mask) >> 8) & !occupancy_bb) >> 8
+                & !occupancy_bb
         }
     };
-    pawn_bb_to_moves_no_promotion(moves, double_push_bb & checkmask_bb & straight_pin_mask, 0, 2 * rank_offset);
+    pawn_bb_to_moves_no_promotion(
+        moves,
+        double_push_bb & checkmask_bb & straight_pin_mask,
+        0,
+        2 * rank_offset,
+    );
 }
 
 fn one_dir_capture(
@@ -227,29 +251,41 @@ fn one_dir_capture(
     file_offset: i8,
 ) {
     let free_pawns: BitBoard = match shift.is_negative() {
-        true => {
-            (pawn_bb & !diag_pin_mask) >> shift.unsigned_abs() as i32
-        },
-        false => {
-            (pawn_bb & !diag_pin_mask) << shift
-        },
+        true => (pawn_bb & !diag_pin_mask) >> shift.unsigned_abs() as i32,
+        false => (pawn_bb & !diag_pin_mask) << shift,
     };
     let capture_bb = free_pawns & enemy_pieces_bb & checkmask;
 
-    pawn_bb_to_moves_no_promotion(moves, capture_bb & !PROMOTION_RANKS_BB, file_offset, rank_offset);
-    pawn_bb_to_moves_promotion(moves, capture_bb & PROMOTION_RANKS_BB, file_offset, rank_offset);
+    pawn_bb_to_moves_no_promotion(
+        moves,
+        capture_bb & !PROMOTION_RANKS_BB,
+        file_offset,
+        rank_offset,
+    );
+    pawn_bb_to_moves_promotion(
+        moves,
+        capture_bb & PROMOTION_RANKS_BB,
+        file_offset,
+        rank_offset,
+    );
 
     let free_pawns: BitBoard = match shift.is_negative() {
-        true => {
-            (pawn_bb & diag_pin_mask) >> shift.unsigned_abs() as i32
-        },
-        false => {
-            (pawn_bb & diag_pin_mask) << shift
-        },
+        true => (pawn_bb & diag_pin_mask) >> shift.unsigned_abs() as i32,
+        false => (pawn_bb & diag_pin_mask) << shift,
     };
     let capture_bb = free_pawns & enemy_pieces_bb & checkmask & diag_pin_mask;
-    pawn_bb_to_moves_no_promotion(moves, capture_bb & !PROMOTION_RANKS_BB, file_offset, rank_offset);
-    pawn_bb_to_moves_promotion(moves, capture_bb & PROMOTION_RANKS_BB, file_offset, rank_offset);
+    pawn_bb_to_moves_no_promotion(
+        moves,
+        capture_bb & !PROMOTION_RANKS_BB,
+        file_offset,
+        rank_offset,
+    );
+    pawn_bb_to_moves_promotion(
+        moves,
+        capture_bb & PROMOTION_RANKS_BB,
+        file_offset,
+        rank_offset,
+    );
 }
 
 fn pawn_bb_to_moves_no_promotion(

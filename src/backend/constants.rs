@@ -14,7 +14,6 @@ pub const PIECE_TYPE_COUNT: usize = 6;
 // White, Black
 pub const SIDES: usize = 2;
 
-
 // Two bitboards for masking out the right and left side of the field.
 pub const LEFT_SIDE_BB: BitBoard = BitBoard {
     value: 0x101010101010101,

@@ -1,9 +1,9 @@
 use crate::backend::constants::{C1, C8, D1, D8, E1, E8, F1, F8, G1, G8};
-use crate::backend::movegen::check_decider::is_in_check_on_square;
-use crate::backend::types::moove::{CastleType, Moove};
-use crate::backend::types::bitboard::BitBoard;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
 use crate::backend::game_state::state::State;
+use crate::backend::movegen::check_decider::is_in_check_on_square;
+use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::types::piece::Side;
 use crate::backend::types::square::Square;
 

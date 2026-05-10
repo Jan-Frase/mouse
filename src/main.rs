@@ -1,7 +1,7 @@
-use crate::backend::movegen::move_gen::moves;
-use crate::backend::perft::perft;
 use crate::backend::game_state::fen_parser::moove_from_uci_notation;
 use crate::backend::game_state::state::State;
+use crate::backend::movegen::move_gen::moves;
+use crate::backend::perft::perft;
 use std::env;
 use std::env::Args;
 
@@ -59,7 +59,7 @@ pub fn root_debug_perft(root_state: &mut State, depth: u8) -> u64 {
 
         println!();
         println!("{:?}", nodes);
-        return nodes
+        return nodes;
     }
 
     for chess_move in moves {

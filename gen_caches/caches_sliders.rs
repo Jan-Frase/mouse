@@ -87,7 +87,7 @@ fn gen_for_piece(
         let amount_of_blocker_squares = relevant_squares.count_ones();
         let amount_of_possible_blocker_configurations = 2u64.pow(amount_of_blocker_squares);
         // Iterate over all possible permutations of blocker configurations
-        for blocker_config_index in 0.. amount_of_possible_blocker_configurations {
+        for blocker_config_index in 0..amount_of_possible_blocker_configurations {
             let blockers: u64 = pdep64(blocker_config_index, relevant_squares);
 
             let moves_bb = calculate_slider_move_bitboard(xray, piece, square, blockers);
@@ -184,7 +184,12 @@ const BISHOP_DIR: [SlideDirection; 4] = [
     SlideDirection::UpLeft,
 ];
 
-fn calculate_slider_move_bitboard(xray: bool, piece_type: &Piece, square: i8, blocker_bb: u64) -> u64 {
+fn calculate_slider_move_bitboard(
+    xray: bool,
+    piece_type: &Piece,
+    square: i8,
+    blocker_bb: u64,
+) -> u64 {
     let mut move_bb = 0u64;
 
     match piece_type {
@@ -205,7 +210,12 @@ fn calculate_slider_move_bitboard(xray: bool, piece_type: &Piece, square: i8, bl
 
 /// Computes a bitboard containing all squares
 /// that the piece on the given square can slide to in the given direction
-fn calculate_max_slide_range(xray: bool, square: i8, direction: &SlideDirection, blocker_bb: u64) -> u64 {
+fn calculate_max_slide_range(
+    xray: bool,
+    square: i8,
+    direction: &SlideDirection,
+    blocker_bb: u64,
+) -> u64 {
     let mut result = 0u64;
     let rank = square_to_rank(square);
     let file = square_to_file(square);
@@ -214,7 +224,7 @@ fn calculate_max_slide_range(xray: bool, square: i8, direction: &SlideDirection,
     let mut blockers_hit = 0;
 
     while is_square_valid(next.1, next.0) {
-        let bb =  1 << (next.1 * 8 + next.0);
+        let bb = 1 << (next.1 * 8 + next.0);
         result |= bb;
 
         let blocker_hit = blocker_bb & bb != 0;
@@ -231,7 +241,6 @@ fn calculate_max_slide_range(xray: bool, square: i8, direction: &SlideDirection,
                 return result;
             }
         }
-
 
         next = direction.next(next.0, next.1);
     }

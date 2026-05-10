@@ -1,9 +1,9 @@
 use crate::backend::constants::{A1, A8, H1, H8};
-use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::game_state::bb_manager::BBManager;
-use crate::backend::types::bitboard::BitBoard;
 use crate::backend::game_state::fen_parser::parse_fen;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
+use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::types::piece::Piece::{King, Pawn, Rook};
 use crate::backend::types::piece::{Piece, Side};
 use crate::backend::types::square::{Square, back_by_one};

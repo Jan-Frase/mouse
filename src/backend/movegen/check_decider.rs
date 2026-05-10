@@ -1,8 +1,8 @@
-use crate::backend::types::piece::Piece::*;
 use crate::backend::caches::{KING_MOVES, KNIGHT_MOVES, PAWN_CAPTURE_MOVES};
-use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
 use crate::backend::game_state::state::State;
+use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
 use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::piece::Piece::*;
 use crate::backend::types::piece::{ALL_PIECES, Piece, Side};
 use crate::backend::types::square::Square;
 

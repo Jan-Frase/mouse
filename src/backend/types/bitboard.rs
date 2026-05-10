@@ -1,9 +1,9 @@
+use crate::backend::types::square::Square;
 use std::fmt::{Display, Formatter};
 use std::ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
     ShrAssign,
 };
-use crate::backend::types::square::Square;
 
 /// A struct that represents a BitBoard.
 /// Each bit in the `u64` value represents a specific position on the board.
