@@ -1,4 +1,3 @@
-use std::os::linux::raw::stat;
 use crate::backend::constants::{LEFT_SIDE_BB, RIGHT_SIDE_BB, SIDE_LENGTH};
 use crate::backend::types::moove::Moove;
 use crate::backend::types::bitboard::BitBoard;
@@ -29,13 +28,13 @@ const BLACK_DOUBLE_PUSH_BB: BitBoard = BitBoard { value: 0xff00000000 };
 pub fn gen_pawn_moves(
     moves: &mut Vec<Moove>,
     state: &State,
-    friendly_pieces_bb: BitBoard,
-    enemy_pieces_bb: BitBoard,
     checkmask: BitBoard,
     straight_pin_mask: BitBoard,
     diag_pin_mask: BitBoard,
     active_color: Side,
 ) {
+    let friendly_pieces_bb = state.bb_mngr.get_all_pieces_bb_off(active_color);
+    let enemy_pieces_bb = state.bb_mngr.get_all_pieces_bb_off(active_color.oppo());
     let occupancy_bb = friendly_pieces_bb | enemy_pieces_bb;
     let pawn_bb = state.bb_mngr.get_colored_piece_bb(Pawn, active_color);
 
@@ -220,7 +219,7 @@ fn double_push(
 fn one_dir_capture(
     moves: &mut Vec<Moove>,
     enemy_pieces_bb: BitBoard,
-    mut pawn_bb: BitBoard,
+    pawn_bb: BitBoard,
     checkmask: BitBoard,
     diag_pin_mask: BitBoard,
     rank_offset: i8,

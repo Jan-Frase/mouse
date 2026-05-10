@@ -1,5 +1,4 @@
 use crate::backend::caches::{BETWEEN_TABLE, KING_MOVES, KNIGHT_MOVES};
-use crate::backend::constants::SQUARES_AMOUNT;
 use crate::backend::game_state::state::State;
 use crate::backend::movegen::check_decider::{get_checking_squares, is_in_check_on_square};
 use crate::backend::movegen::move_gen_king::gen_castles;
@@ -9,8 +8,6 @@ use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::moove::Moove;
 use crate::backend::types::piece::Piece::*;
 use crate::backend::types::square::{back_by_one, Square};
-
-type MoveCache = [BitBoard; SQUARES_AMOUNT];
 
 const EXPECTED_MOVE_CAPACITY: usize = 50;
 const DOUBLE_CHECK_ATTACKERS: u32 = 2;
@@ -66,8 +63,6 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
     gen_pawn_moves(
         &mut moves,
         state,
-        friendly_pieces_bb,
-        enemy_pieces_bb,
         check_mask,
         straight_pin_mask,
         diag_pin_mask,
