@@ -1,16 +1,17 @@
 use std::fs;
 
+mod build_util;
+mod cache_between;
 mod caches_non_sliders;
 mod caches_sliders;
-mod build_util;
 
 const DIR_PATH: &str = "src/backend/";
 
 fn main() {
-    println!("cargo:rerun-if-changed=build/build.rs");
-    println!("cargo:rerun-if-changed=build/caches_non_sliders");
-    println!("cargo:rerun-if-changed=build/caches_sliders");
-    println!("cargo:rerun-if-changed=build/build_util");
+    println!("cargo:rerun-if-changed=gen_caches/build.rs");
+    println!("cargo:rerun-if-changed=gen_caches/caches_non_sliders");
+    println!("cargo:rerun-if-changed=gen_caches/caches_sliders");
+    println!("cargo:rerun-if-changed=gen_caches/build_util");
     println!("cargo:rerun-if-changed=src/backend/caches.rs");
 
     let mut king_moves = [0u64; 64];
@@ -19,18 +20,17 @@ fn main() {
     }
 
     let mut knight_moves = [0u64; 64];
-    for (square , knight_moves_for_square) in knight_moves.iter_mut().enumerate() {
+    for (square, knight_moves_for_square) in knight_moves.iter_mut().enumerate() {
         *knight_moves_for_square = caches_non_sliders::gen_knight_moves(square as i8);
     }
 
     let capture_pawn_moves = caches_non_sliders::gen_pawn_captures();
 
-    let pext_data = caches_sliders::gen_cache_sliders();
-    let rook_pext_mask = pext_data.rook_pext_mask;
-    let rook_pext_index = pext_data.rook_pext_index;
-    let bishop_pext_mask = pext_data.bishop_pext_mask;
-    let bishop_pext_index = pext_data.bishop_pext_index;
-    let pext_table = pext_data.pext_table;
+    let pext_data = caches_sliders::gen_cache_sliders(false);
+
+    let between_cache = cache_between::gen_between_cache();
+
+    let xray_pext_data = caches_sliders::gen_cache_sliders(true);
 
     let cache_strings = [
         format!(
@@ -48,24 +48,49 @@ fn main() {
         ),
         format!(
             "pub const ROOK_PEXT_MASK: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
-            array_to_string(&rook_pext_mask)
+            array_to_string(&pext_data.rook_pext_mask)
         ),
         format!(
             "pub const ROOK_PEXT_INDEX: [usize; SQUARES_AMOUNT] = {:?};",
-            rook_pext_index
+            pext_data.rook_pext_index
         ),
         format!(
             "pub const BISHOP_PEXT_MASK: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
-            array_to_string(&bishop_pext_mask)
+            array_to_string(&pext_data.bishop_pext_mask)
         ),
         format!(
             "pub const BISHOP_PEXT_INDEX: [usize; SQUARES_AMOUNT] = {:?};",
-            bishop_pext_index
+            pext_data.bishop_pext_index
         ),
         format!(
             "pub static PEXT_TABLE: [BitBoard; {}] = unsafe{{std::mem::transmute({})}};",
             caches_sliders::PEXT_TABLE_SIZE,
-            array_to_string(&pext_table)
+            array_to_string(&pext_data.pext_table)
+        ),
+        format!(
+            "pub static BETWEEN_TABLE: [[BitBoard; SQUARES_AMOUNT]; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
+            two_d_array_to_string(&between_cache)
+        ),
+        format!(
+            "pub const ROOK_XRAY_PEXT_MASK: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
+            array_to_string(&xray_pext_data.rook_pext_mask)
+        ),
+        format!(
+            "pub const ROOK_XRAY_PEXT_INDEX: [usize; SQUARES_AMOUNT] = {:?};",
+            xray_pext_data.rook_pext_index
+        ),
+        format!(
+            "pub const BISHOP_XRAY_PEXT_MASK: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
+            array_to_string(&xray_pext_data.bishop_pext_mask)
+        ),
+        format!(
+            "pub const BISHOP_XRAY_PEXT_INDEX: [usize; SQUARES_AMOUNT] = {:?};",
+            xray_pext_data.bishop_pext_index
+        ),
+        format!(
+            "pub static PEXT_XRAY_TABLE: [BitBoard; {}] = unsafe{{std::mem::transmute({})}};",
+            caches_sliders::PEXT_TABLE_SIZE,
+            array_to_string(&xray_pext_data.pext_table)
         ),
     ];
 
@@ -94,6 +119,19 @@ fn array_to_string<const N: usize>(array: &[u64; N]) -> String {
     for bb in array {
         string.push_str(&format!("{}u64,", bb));
     }
+    string.push(']');
+    string
+}
+
+fn two_d_array_to_string<const M: usize, const N: usize>(array: &[[u64; N]; M]) -> String {
+    let mut string = String::new();
+    string.push('[');
+
+    for inner_array in array {
+        string.push_str(array_to_string(inner_array).as_str());
+        string.push(',');
+    }
+
     string.push(']');
     string
 }

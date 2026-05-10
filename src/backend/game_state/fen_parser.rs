@@ -1,6 +1,6 @@
-use crate::backend::types::moove::Moove;
 use crate::backend::game_state::bb_manager::BBManager;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
+use crate::backend::types::moove::Moove;
 use crate::backend::types::piece::Piece::{Bishop, King, Knight, Pawn, Queen, Rook};
 use crate::backend::types::piece::Side::{Black, White};
 use crate::backend::types::piece::{Piece, Side};
@@ -229,12 +229,7 @@ fn parse_position(bit_board_manager: &mut BBManager, positions_string: &str) {
         }
     }
 
-    fn fill_square(
-        bb_manager: &mut BBManager,
-        piece_type: Piece,
-        side: Side,
-        square: Square,
-    ) {
+    fn fill_square(bb_manager: &mut BBManager, piece_type: Piece, side: Side, square: Square) {
         bb_manager.get_piece_bb_mut(piece_type).fill_square(square);
         bb_manager
             .get_all_pieces_bb_off_mut(side)
@@ -275,7 +270,7 @@ pub fn moove_from_uci_notation(uci_notation: &str) -> Moove {
             'q' => (Queen),
             _ => panic!("Invalid promotion type {:?}", uci_notation),
         };
-        return Moove::new_promotion(from, to, promotion_type)
+        return Moove::new_promotion(from, to, promotion_type);
     };
 
     Moove::new(from, to)

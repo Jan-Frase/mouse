@@ -1,9 +1,9 @@
 use crate::backend::constants::{A1, A8, H1, H8};
-use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::game_state::bb_manager::BBManager;
-use crate::backend::types::bitboard::BitBoard;
 use crate::backend::game_state::fen_parser::parse_fen;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
+use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::types::piece::Piece::{King, Pawn, Rook};
 use crate::backend::types::piece::{Piece, Side};
 use crate::backend::types::square::{Square, back_by_one};
@@ -19,9 +19,9 @@ const ROOK_SWAP_BLACK_SHORT_CASTLE_BB: BitBoard = BitBoard {
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub bb_manager: BBManager,
+    pub bb_mngr: BBManager,
     pub irreversible_data: IrreversibleData,
-    pub active_color: Side,
+    pub active_side: Side,
     pub half_move_clock: u16,
 }
 
@@ -32,8 +32,8 @@ impl State {
     #[allow(clippy::new_without_default)]
     pub fn new() -> State {
         State {
-            bb_manager: BBManager::new(),
-            active_color: Side::White,
+            bb_mngr: BBManager::new(),
+            active_side: Side::White,
             irreversible_data: IrreversibleData::new_with_castling_true(),
             half_move_clock: 0,
         }
@@ -55,8 +55,8 @@ impl State {
         );
 
         State {
-            bb_manager,
-            active_color,
+            bb_mngr: bb_manager,
+            active_side: active_color,
             irreversible_data,
             half_move_clock,
         }
@@ -73,7 +73,7 @@ impl State {
         let mut next_ir_data = IrreversibleData::new_from_previous_state(&self.irreversible_data);
 
         // Get the type of moved piece.
-        let moved_piece = self.bb_manager.get_piece_at_square(moove.get_from()).unwrap();
+        let moved_piece = self.bb_mngr.get_piece_at_square(moove.get_from()).unwrap();
 
         // Usually the square something was captured on (if something was captured at all) is the square we moved to...
         let mut capture_square = moove.get_to();
@@ -88,7 +88,7 @@ impl State {
         next_state.make_move_capture(&mut next_ir_data, capture_square);
 
         // Get the bitboard for the piece that was moved.
-        let mut moved_piece_bb = next_state.bb_manager.get_piece_bb_mut(moved_piece);
+        let mut moved_piece_bb = next_state.bb_mngr.get_piece_bb_mut(moved_piece);
 
         // Clear the square that the piece was moved from.
         moved_piece_bb.clear_square(moove.get_from());
@@ -97,19 +97,19 @@ impl State {
         match moove.get_promotion_type() {
             None => {}
             Some(promotion_type) => {
-                moved_piece_bb = next_state.bb_manager.get_piece_bb_mut(promotion_type);
+                moved_piece_bb = next_state.bb_mngr.get_piece_bb_mut(promotion_type);
             }
         }
         // Fill the square it moved to.
         moved_piece_bb.fill_square(moove.get_to());
 
         next_state
-            .bb_manager
-            .get_all_pieces_bb_off_mut(self.active_color)
+            .bb_mngr
+            .get_all_pieces_bb_off_mut(self.active_side)
             .fill_square(moove.get_to());
         next_state
-            .bb_manager
-            .get_all_pieces_bb_off_mut(self.active_color)
+            .bb_mngr
+            .get_all_pieces_bb_off_mut(self.active_side)
             .clear_square(moove.get_from());
 
         // Some special king handling
@@ -121,11 +121,11 @@ impl State {
             &mut next_ir_data,
             moved_piece,
             moove.get_from(),
-            self.active_color,
+            self.active_side,
         );
 
         // Take care of some basics.
-        next_state.active_color = self.active_color.opposite();
+        next_state.active_side = self.active_side.oppo();
         next_state.irreversible_data = next_ir_data;
         next_state
     }
@@ -139,7 +139,7 @@ impl State {
             && ep_square == moove.get_to()
         {
             // update the captured square to the ep_square - offset
-            *capture_square = back_by_one(moove.get_to(), self.active_color);
+            *capture_square = back_by_one(moove.get_to(), self.active_side);
         }
     }
 
@@ -149,16 +149,16 @@ impl State {
         capture_square: Square,
     ) {
         // Get the type of the captured piece if it exists.
-        let captured_piece = self.bb_manager.get_piece_at_square(capture_square);
+        let captured_piece = self.bb_mngr.get_piece_at_square(capture_square);
         // Clear the square on the captured piece's bitboard if it exists.
         if let Some(captured_piece) = captured_piece {
             // Store the captured piece type in the irreversible data.
             irreversible_data.captured_piece = Some(captured_piece);
             // Remove the captured piece from its bitboard.
-            let captured_piece_bb = self.bb_manager.get_piece_bb_mut(captured_piece);
+            let captured_piece_bb = self.bb_mngr.get_piece_bb_mut(captured_piece);
             captured_piece_bb.clear_square(capture_square);
-            self.bb_manager
-                .get_all_pieces_bb_off_mut(self.active_color.opposite())
+            self.bb_mngr
+                .get_all_pieces_bb_off_mut(self.active_side.oppo())
                 .clear_square(capture_square);
 
             // Remove castling rights if the captured piece was a rook on its starting square
@@ -166,7 +166,7 @@ impl State {
                 irreversible_data,
                 captured_piece,
                 capture_square,
-                self.active_color.opposite(),
+                self.active_side.oppo(),
             )
         }
     }
@@ -178,7 +178,7 @@ impl State {
     ) {
         if moove.is_double_pawn_push() {
             // the pawn starting square and one forward
-            let ep_square = back_by_one(moove.get_to(), self.active_color);
+            let ep_square = back_by_one(moove.get_to(), self.active_side);
 
             irreversible_data.en_passant_square = Some(ep_square);
         }
@@ -186,15 +186,15 @@ impl State {
 
     fn make_move_king(&mut self, moove: Moove, irreversible_data: &mut IrreversibleData) {
         // If the king moved we can't castle anymore
-        irreversible_data.remove_long_castle_rights(self.active_color);
-        irreversible_data.remove_short_castle_rights(self.active_color);
+        irreversible_data.remove_long_castle_rights(self.active_side);
+        irreversible_data.remove_short_castle_rights(self.active_side);
 
         // If we castled, we need to move the rook
         if moove.is_castle() {
-            let rook_bb = self.bb_manager.get_piece_bb_mut(Rook);
-            let rook_swap_bb = Self::get_rook_swap_bb(moove.get_castle_type(), self.active_color);
+            let rook_bb = self.bb_mngr.get_piece_bb_mut(Rook);
+            let rook_swap_bb = Self::get_rook_swap_bb(moove.get_castle_type(), self.active_side);
             *rook_bb ^= rook_swap_bb;
-            let friendly_bb = self.bb_manager.get_all_pieces_bb_off_mut(self.active_color);
+            let friendly_bb = self.bb_mngr.get_all_pieces_bb_off_mut(self.active_side);
             *friendly_bb ^= rook_swap_bb;
         }
     }

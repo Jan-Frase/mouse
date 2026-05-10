@@ -27,12 +27,12 @@ pub fn manual_perft() {
 
 fn run_nps_perft(perft_fixture: PerftFixture) -> u64 {
     let fen = perft_fixture.perft_setup.fen;
-    let state = State::new_from_fen(fen);
+    let mut state = State::new_from_fen(fen);
 
     // Start timer to calculate nodes per second.
     let now = Instant::now();
 
-    let nodes = perft(&state, perft_fixture.depth);
+    let nodes = perft(&mut state, perft_fixture.depth);
 
     let elapsed = now.elapsed();
     let nodes_per_second = nodes as f64 / elapsed.as_secs_f64();

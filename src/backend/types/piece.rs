@@ -33,7 +33,7 @@ pub enum Side {
 
 impl Side {
     /// Returns the opposite color of the current `PieceColor`.
-    pub fn opposite(self) -> Side {
+    pub fn oppo(self) -> Side {
         match self {
             Side::White => Side::Black,
             Side::Black => Side::White,

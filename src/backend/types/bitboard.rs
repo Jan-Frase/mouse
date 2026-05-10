@@ -1,8 +1,9 @@
+use crate::backend::types::square::Square;
+use std::fmt::{Display, Formatter};
 use std::ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
     ShrAssign,
 };
-use crate::backend::types::square::Square;
 
 /// A struct that represents a BitBoard.
 /// Each bit in the `u64` value represents a specific position on the board.
@@ -23,7 +24,7 @@ impl BitBoard {
     }
 
     /// Converts a given `Square` into a corresponding bitboard.
-    fn new_from_square(square: Square) -> BitBoard {
+    pub fn new_from_square(square: Square) -> BitBoard {
         BitBoard { value: 1 << square }
     }
 
@@ -160,5 +161,44 @@ impl BitXor for BitBoard {
 impl BitXorAssign<BitBoard> for BitBoard {
     fn bitxor_assign(&mut self, rhs: BitBoard) {
         self.value ^= rhs.value;
+    }
+}
+
+// Display implementation for BitBoards - useful for debugging.
+// Sadly, RustRover does not display them when debugging.
+impl Display for BitBoard {
+    /// Formats the bitboard (`self`) into a string representation,
+    /// can be used for debugging purposes.
+    ///
+    /// The moves of a king on A1 get displayed like this:
+    /// `_ _ _ _ _ _ _ _`
+    /// `_ _ _ _ _ _ _ _`
+    /// `_ _ _ _ _ _ _ _`
+    /// `_ _ _ _ _ _ _ _`
+    /// `_ _ _ _ _ _ _ _`
+    /// `_ _ _ _ _ _ _ _`
+    /// `X X _ _ _ _ _ _`
+    /// `_ X _ _ _ _ _ _`
+    ///
+    /// # Parameters
+    /// - `f`: A mutable reference to a formatter that implements the `Formatter` trait, used
+    ///   to write the formatted output.
+    ///
+    /// # Returns
+    /// - A `std::fmt::Result` indicating the success or failure of the formatting operation.
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let index = file + rank * 8;
+                let bit = (self.value >> index) & 1;
+                result.push(if bit == 1 { 'X' } else { '_' });
+                result.push(' ');
+            }
+            result.push('\n');
+        }
+
+        write!(f, "{}", result)
     }
 }

@@ -32,7 +32,7 @@ pub struct PextData {
     pub pext_table: [u64; PEXT_TABLE_SIZE],
 }
 
-pub fn gen_cache_sliders() -> PextData {
+pub fn gen_cache_sliders(xray: bool) -> PextData {
     let mut rook_pext_mask = [0; 64];
     let mut rook_pext_index = [0usize; 64];
 
@@ -43,6 +43,7 @@ pub fn gen_cache_sliders() -> PextData {
     let mut current_pext_table_index = 0;
 
     gen_for_piece(
+        xray,
         &Piece::Rook,
         &mut rook_pext_mask,
         &mut rook_pext_index,
@@ -51,6 +52,7 @@ pub fn gen_cache_sliders() -> PextData {
     );
 
     gen_for_piece(
+        xray,
         &Piece::Bishop,
         &mut bishop_pext_mask,
         &mut bishop_pext_index,
@@ -68,6 +70,7 @@ pub fn gen_cache_sliders() -> PextData {
 }
 
 fn gen_for_piece(
+    xray: bool,
     piece: &Piece,
     piece_pext_mask: &mut [u64; 64],
     piece_pext_index: &mut [usize; 64],
@@ -77,22 +80,19 @@ fn gen_for_piece(
     for square in 0..64 {
         piece_pext_index[square as usize] = *current_pext_table_index;
 
-        let mut relevant_squares = calculate_slider_move_bitboard(piece, square, 0);
+        let mut relevant_squares = calculate_slider_move_bitboard(xray, piece, square, 0);
         relevant_squares &= !adjust_edge_of_board(square);
         piece_pext_mask[square as usize] = relevant_squares;
 
         let amount_of_blocker_squares = relevant_squares.count_ones();
         let amount_of_possible_blocker_configurations = 2u64.pow(amount_of_blocker_squares);
         // Iterate over all possible permutations of blocker configurations
-        let mut blocker_config_index = 0;
-        while blocker_config_index < amount_of_possible_blocker_configurations {
+        for blocker_config_index in 0..amount_of_possible_blocker_configurations {
             let blockers: u64 = pdep64(blocker_config_index, relevant_squares);
 
-            let moves_bb = calculate_slider_move_bitboard(piece, square, blockers);
+            let moves_bb = calculate_slider_move_bitboard(xray, piece, square, blockers);
             pext_table[*current_pext_table_index] = moves_bb;
             *current_pext_table_index += 1;
-
-            blocker_config_index += 1;
         }
     }
 }
@@ -184,21 +184,23 @@ const BISHOP_DIR: [SlideDirection; 4] = [
     SlideDirection::UpLeft,
 ];
 
-fn calculate_slider_move_bitboard(piece_type: &Piece, square: i8, blocker_bb: u64) -> u64 {
+fn calculate_slider_move_bitboard(
+    xray: bool,
+    piece_type: &Piece,
+    square: i8,
+    blocker_bb: u64,
+) -> u64 {
     let mut move_bb = 0u64;
 
-    let mut i = 0;
     match piece_type {
         Piece::Rook => {
-            while i < 4 {
-                move_bb |= calculate_max_slide_range(square, &ROOK_DIR[i], blocker_bb);
-                i += 1;
+            for dir in ROOK_DIR {
+                move_bb |= calculate_max_slide_range(xray, square, &dir, blocker_bb);
             }
         }
         Piece::Bishop => {
-            while i < 4 {
-                move_bb |= calculate_max_slide_range(square, &BISHOP_DIR[i], blocker_bb);
-                i += 1;
+            for dir in BISHOP_DIR {
+                move_bb |= calculate_max_slide_range(xray, square, &dir, blocker_bb);
             }
         }
     }
@@ -208,18 +210,38 @@ fn calculate_slider_move_bitboard(piece_type: &Piece, square: i8, blocker_bb: u6
 
 /// Computes a bitboard containing all squares
 /// that the piece on the given square can slide to in the given direction
-fn calculate_max_slide_range(square: i8, direction: &SlideDirection, blocker_bb: u64) -> u64 {
+fn calculate_max_slide_range(
+    xray: bool,
+    square: i8,
+    direction: &SlideDirection,
+    blocker_bb: u64,
+) -> u64 {
     let mut result = 0u64;
     let rank = square_to_rank(square);
     let file = square_to_file(square);
     let mut next = direction.next(file, rank);
 
+    let mut blockers_hit = 0;
+
     while is_square_valid(next.1, next.0) {
-        let bb =  1 << (next.1 * 8 + next.0);
+        let bb = 1 << (next.1 * 8 + next.0);
         result |= bb;
-        if blocker_bb & bb != 0 {
+
+        let blocker_hit = blocker_bb & bb != 0;
+
+        // if we hit a blocker, return!
+        if !xray && blocker_hit {
             return result;
         }
+
+        if xray && blocker_hit {
+            blockers_hit += 1;
+
+            if blockers_hit == 2 {
+                return result;
+            }
+        }
+
         next = direction.next(next.0, next.1);
     }
     result
