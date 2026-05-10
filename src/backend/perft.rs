@@ -1,5 +1,4 @@
-use crate::backend::movegen::check_decider::is_in_check;
-use crate::backend::movegen::move_gen::get_pseudo_legal_moves;
+use crate::backend::movegen::move_gen::moves;
 use crate::backend::game_state::state::State;
 
 pub fn perft(state: &mut State, depth: u8) -> u64 {
@@ -14,7 +13,7 @@ pub fn perft(state: &mut State, depth: u8) -> u64 {
     }
      */
 
-    let moves = get_pseudo_legal_moves(state);
+    let moves = moves(state);
     if depth == 1 {
         return moves.len() as u64;
     }

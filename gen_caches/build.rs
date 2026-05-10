@@ -8,7 +8,7 @@ mod cache_between;
 const DIR_PATH: &str = "src/backend/";
 
 fn main() {
-    println!("cargo:rerun-if-changed=gen_caches/gen_caches.rs");
+    println!("cargo:rerun-if-changed=gen_caches/build.rs");
     println!("cargo:rerun-if-changed=gen_caches/caches_non_sliders");
     println!("cargo:rerun-if-changed=gen_caches/caches_sliders");
     println!("cargo:rerun-if-changed=gen_caches/build_util");

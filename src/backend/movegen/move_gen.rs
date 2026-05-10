@@ -22,7 +22,7 @@ use crate::backend::types::square::{back_by_one, Square};
 ///
 /// * A `Vec<Moove>` containing all the computed pseudo legal moves for the current player's
 ///   pieces.
-pub fn get_pseudo_legal_moves(state: &mut State) -> Vec<Moove> {
+pub fn moves(state: &mut State) -> Vec<Moove> {
     let friendly_pieces_bb = state.bb_mngr.get_all_pieces_bb_off(state.active_side);
     let enemy_pieces_bb = state
         .bb_mngr
@@ -86,13 +86,6 @@ pub fn get_pseudo_legal_moves(state: &mut State) -> Vec<Moove> {
         // this way its possible to capture the checker :)
         diag_pin_mask |= BETWEEN_TABLE[square as usize][king_square as usize];
     }
-
-    // TODO: 1.
-    // See: 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
-    // 1. Whenever a pawn is double moved, check if its on the same horizontal line as  the enemy king
-    // -> If so, capturing this pawn via en passant might be illegal!
-    // 2. If so, check if it at most one pawn left or right of it that could capture it via en passant
-    // 3. If so, dont create the en passant square
 
     // This is for a scenario like this: 1k4q1/8/8/3pP3/8/1K6/8/8 w - d6 0 1
     // The ep takable pawn is pinned, thus the ep is not legal and has to be removed

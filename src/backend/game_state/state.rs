@@ -124,10 +124,6 @@ impl State {
             self.active_side,
         );
 
-        if next_state.bb_mngr.get_piece_bb(King).value.count_ones() != 2 {
-            println!("fuck")
-        }
-
         // Take care of some basics.
         next_state.active_side = self.active_side.oppo();
         next_state.irreversible_data = next_ir_data;

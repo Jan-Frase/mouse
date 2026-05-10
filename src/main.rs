@@ -1,5 +1,4 @@
-use crate::backend::movegen::check_decider::is_in_check;
-use crate::backend::movegen::move_gen::get_pseudo_legal_moves;
+use crate::backend::movegen::move_gen::moves;
 use crate::backend::perft::perft;
 use crate::backend::game_state::fen_parser::moove_from_uci_notation;
 use crate::backend::game_state::state::State;
@@ -46,7 +45,7 @@ pub fn root_debug_perft(root_state: &mut State, depth: u8) -> u64 {
     let mut nodes = 0;
 
     // Generate all root moves.
-    let mut moves = get_pseudo_legal_moves(root_state);
+    let mut moves = moves(root_state);
     // Sort them in the same way as perftree does
     moves.sort();
 
