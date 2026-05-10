@@ -1,11 +1,14 @@
-use crate::backend::types::moove::Moove;
+use crate::backend::caches::{
+    BISHOP_PEXT_INDEX, BISHOP_PEXT_MASK, BISHOP_XRAY_PEXT_INDEX, BISHOP_XRAY_PEXT_MASK,
+    PEXT_TABLE, PEXT_XRAY_TABLE, ROOK_PEXT_INDEX, ROOK_PEXT_MASK, ROOK_XRAY_PEXT_INDEX,
+    ROOK_XRAY_PEXT_MASK,
+};
 use crate::backend::movegen::move_gen::convert_bitboard_to_moves;
 use crate::backend::types::bitboard::BitBoard;
+use crate::backend::types::moove::Moove;
 use crate::backend::types::piece::Piece;
 use crate::backend::types::square::Square;
 use std::arch::x86_64::_pext_u64;
-use std::hint::unreachable_unchecked;
-use crate::backend::caches::{BISHOP_PEXT_INDEX, BISHOP_PEXT_MASK, PEXT_TABLE, ROOK_PEXT_INDEX, ROOK_PEXT_MASK, BISHOP_XRAY_PEXT_INDEX, BISHOP_XRAY_PEXT_MASK, PEXT_XRAY_TABLE, ROOK_XRAY_PEXT_INDEX, ROOK_XRAY_PEXT_MASK};
 
 pub fn get_slider_moves(
     moves: &mut Vec<Moove>,
@@ -14,73 +17,125 @@ pub fn get_slider_moves(
     friendly_pieces_bb: BitBoard,
     enemy_pieces_bb: BitBoard,
     checkmask: BitBoard,
-    pin_mask: BitBoard
+    pin_mask: BitBoard,
 ) {
-    // pieces that are not pinned
-    for square in piece_bb & !pin_mask {
-        let mut moves_for_piece_bb = calc_seen_squares(piece_type, friendly_pieces_bb, enemy_pieces_bb, square);
-        moves_for_piece_bb &= checkmask;
-        convert_bitboard_to_moves(moves, square, moves_for_piece_bb);
-    }
+    let unpinned_pieces = piece_bb & !pin_mask;
+    let pinned_pieces = piece_bb & pin_mask;
 
-    for square in piece_bb & pin_mask {
-        let mut moves_for_piece_bb = calc_seen_squares(piece_type, friendly_pieces_bb, enemy_pieces_bb, square);
-        moves_for_piece_bb &= checkmask & pin_mask;
+    append_slider_moves_for_squares(
+        moves,
+        piece_type,
+        unpinned_pieces,
+        friendly_pieces_bb,
+        enemy_pieces_bb,
+        checkmask,
+    );
+
+    append_slider_moves_for_squares(
+        moves,
+        piece_type,
+        pinned_pieces,
+        friendly_pieces_bb,
+        enemy_pieces_bb,
+        checkmask & pin_mask,
+    );
+}
+
+fn append_slider_moves_for_squares(
+    moves: &mut Vec<Moove>,
+    piece_type: Piece,
+    piece_squares: BitBoard,
+    friendly_pieces_bb: BitBoard,
+    enemy_pieces_bb: BitBoard,
+    legal_move_mask: BitBoard,
+) {
+    for square in piece_squares {
+        let moves_for_piece_bb =
+            slider_attacks_for_piece(piece_type, friendly_pieces_bb, enemy_pieces_bb, square)
+                & legal_move_mask;
+
         convert_bitboard_to_moves(moves, square, moves_for_piece_bb);
     }
 }
 
-fn calc_seen_squares(piece_type: Piece, friendly_pieces_bb: BitBoard, enemy_pieces_bb: BitBoard, square: Square) -> BitBoard {
+fn slider_attacks_for_piece(
+    piece_type: Piece,
+    friendly_pieces_bb: BitBoard,
+    enemy_pieces_bb: BitBoard,
+    square: Square,
+) -> BitBoard {
     match piece_type {
         Piece::Rook => get_slider_moves_at_square::<true>(square, friendly_pieces_bb, enemy_pieces_bb),
-        Piece::Bishop => get_slider_moves_at_square::<false>(square, friendly_pieces_bb, enemy_pieces_bb),
-        Piece::Queen => get_slider_moves_at_square::<true>(square, friendly_pieces_bb, enemy_pieces_bb) | get_slider_moves_at_square::<false>(square, friendly_pieces_bb, enemy_pieces_bb),
-        _ => unsafe {unreachable_unchecked()}
+        Piece::Bishop => {
+            get_slider_moves_at_square::<false>(square, friendly_pieces_bb, enemy_pieces_bb)
+        }
+        Piece::Queen => {
+            get_slider_moves_at_square::<true>(square, friendly_pieces_bb, enemy_pieces_bb)
+                | get_slider_moves_at_square::<false>(square, friendly_pieces_bb, enemy_pieces_bb)
+        }
+        _ => unreachable!("slider move generation was called for a non-slider piece"),
     }
 }
 
-pub fn get_slider_xray_moves_at_square<const IS_STRAIGHT: bool>(square: Square, occ_bb: BitBoard) -> BitBoard {
-    let pext_mask = match IS_STRAIGHT {
-        true => ROOK_XRAY_PEXT_MASK[square as usize],
-        false => BISHOP_XRAY_PEXT_MASK[square as usize],
+pub fn get_slider_xray_moves_at_square<const IS_STRAIGHT: bool>(
+    square: Square,
+    occ_bb: BitBoard,
+) -> BitBoard {
+    let square_index = square as usize;
+
+    let pext_mask = if IS_STRAIGHT {
+        ROOK_XRAY_PEXT_MASK[square_index]
+    } else {
+        BISHOP_XRAY_PEXT_MASK[square_index]
     };
 
-    let pext_index = match IS_STRAIGHT {
-        true => ROOK_XRAY_PEXT_INDEX[square as usize],
-        false => BISHOP_XRAY_PEXT_INDEX[square as usize],
+    let pext_index = if IS_STRAIGHT {
+        ROOK_XRAY_PEXT_INDEX[square_index]
+    } else {
+        BISHOP_XRAY_PEXT_INDEX[square_index]
     };
 
-    let blockers_index: usize = unsafe { _pext_u64(occ_bb.value, pext_mask.value) as usize };
-
-    PEXT_XRAY_TABLE[pext_index + blockers_index]
+    pext_table_lookup(&PEXT_XRAY_TABLE, pext_index, pext_mask, occ_bb)
 }
 
-/// Computes the sliding piece moves (either rook-like or bishop-like)
-/// for a given square on the chessboard based on occupancy bitboards.
+/// Computes the sliding piece moves, either rook-like or bishop-like, for a
+/// given square based on occupancy bitboards.
 ///
 /// # Type Parameters
-/// - IS_STRAIGHT:
-///   - True for rook-like (horizontal and vertical) moves.
-///   - False for bishop-like (diagonal) moves.
-///
-/// # Returns
-/// - BitBoard
-///   A bitboard representing all legal moves for the sliding piece from the given
-///   square. This excludes moves that are blocked by friendly pieces.
-pub fn get_slider_moves_at_square<const IS_STRAIGHT: bool>(square: Square, friendly_bb: BitBoard, enemy_bb: BitBoard) -> BitBoard {
-    let pext_mask = match IS_STRAIGHT {
-        true => ROOK_PEXT_MASK[square as usize],
-        false => BISHOP_PEXT_MASK[square as usize],
+/// - `IS_STRAIGHT`:
+///   - `true` for rook-like horizontal and vertical moves.
+///   - `false` for bishop-like diagonal moves.
+pub fn get_slider_moves_at_square<const IS_STRAIGHT: bool>(
+    square: Square,
+    friendly_bb: BitBoard,
+    enemy_bb: BitBoard,
+) -> BitBoard {
+    let square_index = square as usize;
+
+    let pext_mask = if IS_STRAIGHT {
+        ROOK_PEXT_MASK[square_index]
+    } else {
+        BISHOP_PEXT_MASK[square_index]
     };
 
-    let pext_index = match IS_STRAIGHT {
-        true => ROOK_PEXT_INDEX[square as usize],
-        false => BISHOP_PEXT_INDEX[square as usize],
+    let pext_index = if IS_STRAIGHT {
+        ROOK_PEXT_INDEX[square_index]
+    } else {
+        BISHOP_PEXT_INDEX[square_index]
     };
 
-    let occ_bb = friendly_bb | enemy_bb;
-    let blockers_index: usize = unsafe { _pext_u64(occ_bb.value, pext_mask.value) as usize };
+    let occupied_bb = friendly_bb | enemy_bb;
 
-    PEXT_TABLE[pext_index + blockers_index] & !friendly_bb
+    pext_table_lookup(&PEXT_TABLE, pext_index, pext_mask, occupied_bb) & !friendly_bb
 }
 
+fn pext_table_lookup(
+    table: &[BitBoard],
+    pext_index: usize,
+    pext_mask: BitBoard,
+    occupied_bb: BitBoard,
+) -> BitBoard {
+    let blockers_index = unsafe { _pext_u64(occupied_bb.value, pext_mask.value) as usize };
+
+    table[pext_index + blockers_index]
+}
