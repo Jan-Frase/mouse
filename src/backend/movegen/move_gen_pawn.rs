@@ -102,59 +102,63 @@ pub fn gen_pawn_moves(
         -1,
     );
 }
-
-fn is_ep_legal(state: &State, ) -> bool{
-    if state.irreversible_data.en_passant_square.is_none() {
+fn is_ep_legal(state: &State) -> bool {
+    let Some(en_passant_square) = state.irreversible_data.en_passant_square else {
         return false;
-    }
+    };
 
-    let double_push_rank = match state.active_side {
+    let active_side = state.active_side;
+    let opponent_side = active_side.oppo();
+
+    let double_push_rank = match active_side {
         Side::White => BLACK_DOUBLE_PUSH_BB,
-        Side::Black => WHITE_DOUBLE_PUSH_BB
+        Side::Black => WHITE_DOUBLE_PUSH_BB,
     };
 
-    let ep_square = state.irreversible_data.en_passant_square.unwrap();
-    let ep_pawn = match state.active_side {
-        Side::White => ep_square - SIDE_LENGTH as u8,
-        Side::Black => ep_square + SIDE_LENGTH as u8
+    let captured_pawn_square = match active_side {
+        Side::White => en_passant_square - SIDE_LENGTH as u8,
+        Side::Black => en_passant_square + SIDE_LENGTH as u8,
     };
-    let ep_pawn_bb = BitBoard::new_from_square(ep_pawn);
+    let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
 
-    let friend_king = state.bb_mngr.get_colored_piece_bb(King, state.active_side);
-    let oppo_queen_rook = state.bb_mngr.get_colored_piece_bb(Queen, state.active_side.oppo())
-        | state.bb_mngr.get_colored_piece_bb(Rook, state.active_side.oppo());
+    let friendly_king = state.bb_mngr.get_colored_piece_bb(King, active_side);
+    let opponent_sliders =
+        state.bb_mngr.get_colored_piece_bb(Queen, opponent_side)
+            | state.bb_mngr.get_colored_piece_bb(Rook, opponent_side);
 
-    if (friend_king & double_push_rank).is_empty() || (oppo_queen_rook & double_push_rank).is_empty() {
+    if (friendly_king & double_push_rank).is_empty()
+        || (opponent_sliders & double_push_rank).is_empty()
+    {
         return true;
     }
 
-    let friend_pawn_bb = state.bb_mngr.get_colored_piece_bb(Pawn, state.active_side);
+    let friendly_pawns = state.bb_mngr.get_colored_piece_bb(Pawn, active_side);
+    let left_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !LEFT_SIDE_BB) >> 1);
+    let right_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !RIGHT_SIDE_BB) << 1);
 
-    let left_pawn = friend_pawn_bb & ((ep_pawn_bb & !LEFT_SIDE_BB) >> 1);
-    let right_pawn = friend_pawn_bb & ((ep_pawn_bb & !RIGHT_SIDE_BB) << 1);
+    let friendly_occupancy = state.bb_mngr.get_all_pieces_bb_off(active_side);
+    let opponent_occupancy =
+        state.bb_mngr.get_all_pieces_bb_off(opponent_side) & !captured_pawn_bb;
 
-    let friend_occ = state.bb_mngr.get_all_pieces_bb_off(state.active_side);
-    let oppo_occ = state.bb_mngr.get_all_pieces_bb_off(state.active_side.oppo());
-    let oppo_occ = oppo_occ & !ep_pawn_bb;
+    let king_square = friendly_king.clone().next().unwrap();
 
-    let king_square = friend_king.clone().next().unwrap();
-
-    if left_pawn.is_not_empty() {
-        let moves = get_slider_moves_at_square::<true>(king_square, friend_occ & !left_pawn, oppo_occ);
-        if (moves & oppo_queen_rook).is_not_empty() {
+    let would_expose_king_to_slider = |capturing_pawn: BitBoard| {
+        if capturing_pawn.is_empty() {
             return false;
         }
-    }
-    if right_pawn.is_not_empty() {
-        let moves = get_slider_moves_at_square::<true>(king_square, friend_occ & !right_pawn, oppo_occ);
-        if (moves & oppo_queen_rook).is_not_empty() {
-            return false;
-        }
-    }
 
-    true
+        let king_slider_rays = get_slider_moves_at_square::<true>(
+            king_square,
+            friendly_occupancy & !capturing_pawn,
+            opponent_occupancy,
+        );
+
+        (king_slider_rays & opponent_sliders).is_not_empty()
+    };
+
+    !would_expose_king_to_slider(left_capturing_pawn)
+        && !would_expose_king_to_slider(right_capturing_pawn)
 }
-
 fn single_push(
     moves: &mut Vec<Moove>,
     active_color: Side,
