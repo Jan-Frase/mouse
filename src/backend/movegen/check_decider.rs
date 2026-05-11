@@ -1,6 +1,6 @@
 use crate::backend::caches::{KING_MOVES, KNIGHT_MOVES, PAWN_CAPTURE_MOVES};
 use crate::backend::game_state::state::State;
-use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
+use crate::backend::movegen::move_gen::MoveGenerator;
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::piece::Piece::*;
 use crate::backend::types::piece::{ALL_PIECES, Piece, Side};
@@ -76,11 +76,11 @@ fn get_attackers_of_piece_type_on_square(
         King => KING_MOVES[target_square as usize],
         Knight => KNIGHT_MOVES[target_square as usize],
         Pawn => PAWN_CAPTURE_MOVES[side as usize][target_square as usize],
-        Rook => get_slider_moves_at_square::<true>(target_square, friendly_bb, enemy_bb),
-        Bishop => get_slider_moves_at_square::<false>(target_square, friendly_bb, enemy_bb),
+        Rook => MoveGenerator::get_slider_moves_at_square::<true>(target_square, friendly_bb, enemy_bb),
+        Bishop => MoveGenerator::get_slider_moves_at_square::<false>(target_square, friendly_bb, enemy_bb),
         Queen => {
-            get_slider_moves_at_square::<true>(target_square, friendly_bb, enemy_bb)
-                | get_slider_moves_at_square::<false>(target_square, friendly_bb, enemy_bb)
+            MoveGenerator::get_slider_moves_at_square::<true>(target_square, friendly_bb, enemy_bb)
+                | MoveGenerator::get_slider_moves_at_square::<false>(target_square, friendly_bb, enemy_bb)
         }
     };
 
