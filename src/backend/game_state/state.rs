@@ -27,8 +27,8 @@ pub struct State {
 
 impl State {
     /// Creates a new `GameState` instance with default values.
-    /// This is not turned into a `default` as many constuctors in this program need to be const.
-    /// Those cant be `default`ed and i would rather keep it constitent.
+    /// This is not turned into a `default` as many constructors in this program need to be const.
+    /// Those can't be `defaulted and I would rather keep it consistent.
     #[allow(clippy::new_without_default)]
     pub fn new() -> State {
         State {
@@ -105,11 +105,11 @@ impl State {
 
         next_state
             .bb_mngr
-            .get_all_pieces_bb_off_mut(self.active_side)
+            .get_side_bb_mut(self.active_side)
             .fill_square(moove.get_to());
         next_state
             .bb_mngr
-            .get_all_pieces_bb_off_mut(self.active_side)
+            .get_side_bb_mut(self.active_side)
             .clear_square(moove.get_from());
 
         // Some special king handling
@@ -158,7 +158,7 @@ impl State {
             let captured_piece_bb = self.bb_mngr.get_piece_bb_mut(captured_piece);
             captured_piece_bb.clear_square(capture_square);
             self.bb_mngr
-                .get_all_pieces_bb_off_mut(self.active_side.oppo())
+                .get_side_bb_mut(self.active_side.oppo())
                 .clear_square(capture_square);
 
             // Remove castling rights if the captured piece was a rook on its starting square
@@ -194,7 +194,7 @@ impl State {
             let rook_bb = self.bb_mngr.get_piece_bb_mut(Rook);
             let rook_swap_bb = Self::get_rook_swap_bb(moove.get_castle_type(), self.active_side);
             *rook_bb ^= rook_swap_bb;
-            let friendly_bb = self.bb_mngr.get_all_pieces_bb_off_mut(self.active_side);
+            let friendly_bb = self.bb_mngr.get_side_bb_mut(self.active_side);
             *friendly_bb ^= rook_swap_bb;
         }
     }

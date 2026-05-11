@@ -34,8 +34,8 @@ pub fn gen_pawn_moves(
     diag_pin_mask: BitBoard,
     active_color: Side,
 ) {
-    let friendly_pieces_bb = state.bb_mngr.get_all_pieces_bb_off(active_color);
-    let enemy_pieces_bb = state.bb_mngr.get_all_pieces_bb_off(active_color.oppo());
+    let friendly_pieces_bb = state.bb_mngr.get_side_bb(active_color);
+    let enemy_pieces_bb = state.bb_mngr.get_side_bb(active_color.oppo());
     let occupancy_bb = friendly_pieces_bb | enemy_pieces_bb;
     let pawn_bb = state.bb_mngr.get_colored_piece_bb(Pawn, active_color);
 
@@ -151,8 +151,8 @@ fn is_ep_legal(state: &State) -> bool {
     let left_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !LEFT_SIDE_BB) >> 1);
     let right_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !RIGHT_SIDE_BB) << 1);
 
-    let friendly_occupancy = state.bb_mngr.get_all_pieces_bb_off(active_side);
-    let opponent_occupancy = state.bb_mngr.get_all_pieces_bb_off(opponent_side) & !captured_pawn_bb;
+    let friendly_occupancy = state.bb_mngr.get_side_bb(active_side);
+    let opponent_occupancy = state.bb_mngr.get_side_bb(opponent_side) & !captured_pawn_bb;
 
     let king_square = friendly_king.clone().next().unwrap();
 

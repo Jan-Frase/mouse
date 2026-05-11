@@ -4,12 +4,10 @@ use crate::backend::types::piece::ALL_PIECES;
 use crate::backend::types::piece::{Piece, Side};
 use crate::backend::types::square::Square;
 
-/// A struct that manages bitboards used for representing chess pieces and their positions on a chessboard.
-/// # Fields
-/// - `bitboards`: An array of bitboards where each entry represents the board game_state
+/// Manages bitboards used to represent chess pieces and their positions.
 ///
-/// - `bitboard_index_to_piece`: An array that maps each index in the `bitboards` array
-///   back to its corresponding `Piece`.
+/// `BBManager` stores separate occupancy bitboards for each side, plus one
+/// bitboard per piece type.
 #[derive(Debug, Clone)]
 pub struct BBManager {
     white_bb: BitBoard,
@@ -18,62 +16,64 @@ pub struct BBManager {
 }
 
 impl BBManager {
-    /// Generates a new BitBoardManager with all bitboards set to empty.
-    pub fn new() -> BBManager {
-        BBManager {
+    /// Generates a new `BBManager` with all bitboards set to empty.
+    pub fn new() -> Self {
+        Self {
             white_bb: BitBoard::new(),
             black_bb: BitBoard::new(),
             piece_bbs: [BitBoard::new(); PIECE_TYPE_COUNT],
         }
     }
 
+    fn piece_index(piece: Piece) -> usize {
+        piece as usize
+    }
+
     /// Retrieves a mutable reference to the bitboard associated with the given piece.
-    pub fn get_piece_bb_mut(&mut self, piece_type: Piece) -> &mut BitBoard {
-        &mut self.piece_bbs[piece_type as usize]
+    pub fn get_piece_bb_mut(&mut self, piece: Piece) -> &mut BitBoard {
+        &mut self.piece_bbs[Self::piece_index(piece)]
     }
 
-    /// Retrieves a copy of the `BitBoard` associated with the specified `Piece`.
-    pub fn get_piece_bb(&self, piece_type: Piece) -> BitBoard {
-        self.piece_bbs[piece_type as usize]
+    /// Retrieves a copy of the `BitBoard` associated with the specified piece.
+    pub fn get_piece_bb(&self, piece: Piece) -> BitBoard {
+        self.piece_bbs[Self::piece_index(piece)]
     }
 
-    /// Returns a `BitBoard` containing all the positions currently occupied by pieces
-    /// of the specified color.
-    pub fn get_all_pieces_bb_off(&self, color: Side) -> BitBoard {
-        match color {
+    /// Returns a `BitBoard` containing all positions occupied by pieces of the specified side.
+    pub fn get_side_bb(&self, side: Side) -> BitBoard {
+        match side {
             Side::White => self.white_bb,
             Side::Black => self.black_bb,
         }
     }
 
-    pub fn get_all_pieces_bb(&self) -> BitBoard {
-        self.white_bb | self.black_bb
-    }
-
-    /// Returns a `BitBoard` containing all the positions currently occupied by pieces
-    /// of the specified color.
-    pub fn get_all_pieces_bb_off_mut(&mut self, color: Side) -> &mut BitBoard {
-        match color {
+    /// Returns a mutable bitboard containing all positions occupied by pieces of the specified side.
+    pub fn get_side_bb_mut(&mut self, side: Side) -> &mut BitBoard {
+        match side {
             Side::White => &mut self.white_bb,
             Side::Black => &mut self.black_bb,
         }
     }
 
-    pub fn get_colored_piece_bb(&self, piece_type: Piece, color: Side) -> BitBoard {
-        let piece_bb = self.get_piece_bb(piece_type);
-        let color_bb = self.get_all_pieces_bb_off(color);
-        piece_bb & color_bb
+    /// Returns a `BitBoard` containing all occupied positions.
+    pub fn get_occupied_bb(&self) -> BitBoard {
+        self.white_bb | self.black_bb
+    }
+
+    /// Returns a `BitBoard` containing all positions occupied by the specified piece and side.
+    pub fn get_colored_piece_bb(&self, piece: Piece, side: Side) -> BitBoard {
+        let piece_bb = self.get_piece_bb(piece);
+        let side_bb = self.get_side_bb(side);
+
+        piece_bb & side_bb
     }
 
     /// Retrieves the piece located at a specific square on the chessboard.
     pub fn get_piece_at_square(&self, square: Square) -> Option<Piece> {
-        for (index, piece) in ALL_PIECES.iter().enumerate().take(self.piece_bbs.len()) {
-            let bitboard = self.piece_bbs[index];
-            if bitboard.get_square(square) {
-                return Some(*piece);
-            }
-        }
-        None
+        ALL_PIECES
+            .iter()
+            .copied()
+            .find(|piece| self.get_piece_bb(*piece).get_square(square))
     }
 }
 
