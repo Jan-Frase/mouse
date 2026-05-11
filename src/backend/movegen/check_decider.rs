@@ -19,8 +19,8 @@ const CHECKING_PIECES_WITHOUT_KING: [Piece; 5] = [Rook, Knight, Bishop, Queen, P
 // Thus, we now know that the white king is in check by a black bishop.
 // I hope this makes sense :)
 pub fn is_in_check_on_square(state: &State, side: Side, king_square: Square) -> bool {
-    let friendly_bb = state.bb_mngr.get_all_pieces_bb_off(side);
-    let enemy_bb = state.bb_mngr.get_all_pieces_bb_off(side.oppo());
+    let friendly_bb = state.bb_mngr.get_side_bb(side);
+    let enemy_bb = state.bb_mngr.get_side_bb(side.oppo());
 
     for piece_type in ALL_PIECES {
         let attackers_bb = get_attackers_of_piece_type_on_square(
@@ -40,15 +40,14 @@ pub fn is_in_check_on_square(state: &State, side: Side, king_square: Square) -> 
     false
 }
 
-// Checking squares are all squares between the king and the attacker, including the attacker.
-// They are used as a mask for legal move-gen.
-pub fn get_checking_squares(state: &State) -> BitBoard {
+
+pub fn checkers(state: &State) -> BitBoard {
     let side = state.active_side;
-    let mut king_bb = state.bb_mngr.get_piece_bb(King) & state.bb_mngr.get_all_pieces_bb_off(side);
+    let mut king_bb = state.bb_mngr.get_piece_bb(King) & state.bb_mngr.get_side_bb(side);
     let king_square = king_bb.next().unwrap();
 
-    let friendly_bb = state.bb_mngr.get_all_pieces_bb_off(side);
-    let enemy_bb = state.bb_mngr.get_all_pieces_bb_off(side.oppo());
+    let friendly_bb = state.bb_mngr.get_side_bb(side);
+    let enemy_bb = state.bb_mngr.get_side_bb(side.oppo());
     let mut checking_squares_bb = BitBoard::new();
 
     for piece_type in CHECKING_PIECES_WITHOUT_KING {
