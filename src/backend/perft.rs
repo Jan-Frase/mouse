@@ -1,5 +1,5 @@
 use crate::backend::game_state::state::State;
-use crate::backend::movegen::move_gen::moves;
+use crate::backend::movegen::move_gen::MoveGenerator;
 
 pub fn perft(state: &mut State, depth: u8) -> u64 {
     /*
@@ -8,7 +8,8 @@ pub fn perft(state: &mut State, depth: u8) -> u64 {
     }
      */
 
-    let moves = moves(state);
+    let move_generator = MoveGenerator::new();
+    let moves = move_generator.generate_moves(state);
     if depth == 1 {
         return moves.len() as u64;
     }

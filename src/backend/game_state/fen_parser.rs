@@ -231,9 +231,7 @@ fn parse_position(bit_board_manager: &mut BBManager, positions_string: &str) {
 
     fn fill_square(bb_manager: &mut BBManager, piece_type: Piece, side: Side, square: Square) {
         bb_manager.get_piece_bb_mut(piece_type).fill_square(square);
-        bb_manager
-            .get_side_bb_mut(side)
-            .fill_square(square);
+        bb_manager.get_side_bb_mut(side).fill_square(square);
     }
 }
 

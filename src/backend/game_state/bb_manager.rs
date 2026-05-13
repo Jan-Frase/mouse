@@ -19,6 +19,7 @@ impl BBManager {
     /// Generates a new `BBManager` with all bitboards set to empty.
     pub fn new() -> Self {
         Self {
+            // TODO: turn into another array
             white_bb: BitBoard::new(),
             black_bb: BitBoard::new(),
             piece_bbs: [BitBoard::new(); PIECE_TYPE_COUNT],
@@ -74,6 +75,22 @@ impl BBManager {
             .iter()
             .copied()
             .find(|piece| self.get_piece_bb(*piece).get_square(square))
+    }
+
+    pub fn clear_square(&mut self, square: Square, piece: Piece, side: Side) {
+        self.piece_bbs[piece as usize].clear_square(square);
+        match side {
+            Side::White => self.white_bb.clear_square(square),
+            Side::Black => self.black_bb.clear_square(square),
+        }
+    }
+
+    pub fn fill_square(&mut self, square: Square, piece: Piece, side: Side) {
+        self.piece_bbs[piece as usize].fill_square(square);
+        match side {
+            Side::White => self.white_bb.fill_square(square),
+            Side::Black => self.black_bb.fill_square(square),
+        }
     }
 }
 

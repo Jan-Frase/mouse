@@ -91,7 +91,9 @@ impl State {
         let mut moved_piece_bb = next_state.bb_mngr.get_piece_bb_mut(moved_piece);
 
         // Clear the square that the piece was moved from.
-        moved_piece_bb.clear_square(moove.get_from());
+        next_state
+            .bb_mngr
+            .clear_square(moove.get_from(), moved_piece, self.active_side);
 
         // Update the moved piece bb if it was a pawn promotion
         match moove.get_promotion_type() {
@@ -101,16 +103,9 @@ impl State {
             }
         }
         // Fill the square it moved to.
-        moved_piece_bb.fill_square(moove.get_to());
-
         next_state
             .bb_mngr
-            .get_side_bb_mut(self.active_side)
-            .fill_square(moove.get_to());
-        next_state
-            .bb_mngr
-            .get_side_bb_mut(self.active_side)
-            .clear_square(moove.get_from());
+            .fill_square(moove.get_to(), moved_piece, self.active_side);
 
         // Some special king handling
         if moved_piece == King {
@@ -155,11 +150,8 @@ impl State {
             // Store the captured piece type in the irreversible data.
             irreversible_data.captured_piece = Some(captured_piece);
             // Remove the captured piece from its bitboard.
-            let captured_piece_bb = self.bb_mngr.get_piece_bb_mut(captured_piece);
-            captured_piece_bb.clear_square(capture_square);
             self.bb_mngr
-                .get_side_bb_mut(self.active_side.oppo())
-                .clear_square(capture_square);
+                .clear_square(capture_square, captured_piece, self.active_side.oppo());
 
             // Remove castling rights if the captured piece was a rook on its starting square
             self.make_move_castling_rights_on_rook_move_or_capture(

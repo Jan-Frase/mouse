@@ -1,9 +1,9 @@
 use crate::backend::game_state::fen_parser::moove_from_uci_notation;
 use crate::backend::game_state::state::State;
-use crate::backend::movegen::move_gen::moves;
 use crate::backend::perft::perft;
 use std::env;
 use std::env::Args;
+use crate::backend::movegen::move_gen::MoveGenerator;
 
 mod backend;
 
@@ -45,7 +45,8 @@ pub fn root_debug_perft(root_state: &mut State, depth: u8) -> u64 {
     let mut nodes = 0;
 
     // Generate all root moves.
-    let mut moves = moves(root_state);
+    let mut move_generator = MoveGenerator::new();
+    let mut moves = move_generator.generate_moves(root_state);
     // Sort them in the same way as perftree does
     moves.sort();
 
