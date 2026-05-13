@@ -15,6 +15,7 @@ fn test_perft_normal() {
 #[test]
 // This test takes quite a while. Thus, it's disabled by default.
 // Can be run using 'cargo test -- --ignored'.
+#[ignore]
 fn test_perft_long() {
     test_perft_fixtures(&LONG_PERFT);
 }
