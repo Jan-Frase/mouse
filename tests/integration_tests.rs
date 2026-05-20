@@ -276,3 +276,19 @@ fn test_perft_27() {
     let nodes = perft(&mut state, 1);
     assert_eq!(nodes, 6);
 }
+
+#[test]
+fn test_perft_28() {
+    let mut state = State::new_from_fen("5k2/8/8/8/8/8/R7/4K2R w K - 0 1");
+
+    let nodes = perft(&mut state, 1);
+    assert_eq!(nodes, 29);
+}
+
+#[test]
+fn test_perft_29() {
+    let mut state = State::new_from_fen("8/8/8/KPpR3r/5p1k/8/4P1P1/8 w - c6 0 1");
+
+    let nodes = perft(&mut state, 1);
+    assert_eq!(nodes, 21);
+}

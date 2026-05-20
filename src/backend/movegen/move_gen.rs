@@ -285,15 +285,17 @@ impl MoveGenerator {
                 };
             // do we have castling rights for this type of castle?
             if !castling_rights {
-                return;
+                continue;
             }
 
             // are we moving through checks?
+            let mut in_check = false;
             for square in squares_the_king_moves_through.iter() {
                 // if so -> stop
-                if self.is_in_check_on_square(state, state.active_side, *square) {
-                    return;
-                }
+                in_check |= self.is_in_check_on_square(state, state.active_side, *square);
+            }
+            if in_check {
+                continue;
             }
 
             // are the squares between the king and the rook empty?
@@ -301,7 +303,7 @@ impl MoveGenerator {
             let squares_between = combined_bb & between_king_rook_bb;
             // if something is in the way -> stop
             if !squares_between.is_empty() {
-                return;
+                continue;
             }
 
             self.moves.push(moove);
@@ -401,9 +403,10 @@ impl MoveGenerator {
         square: Square,
     ) -> BitBoard {
         let friendly_bb = state.bb_mngr.get_side_bb(state.active_side);
+        let occ_bb = state.bb_mngr.get_occupied_bb();
         match piece_type {
-            Rook => self.get_slider_moves_at_square::<true>(state, square, friendly_bb),
-            Bishop => self.get_slider_moves_at_square::<false>(state, square, friendly_bb),
+            Rook => self.get_slider_moves_at_square::<true>(square, friendly_bb, occ_bb),
+            Bishop => self.get_slider_moves_at_square::<false>(square, friendly_bb, occ_bb),
             _ => unreachable!("slider move generation was called for a non-slider piece"),
         }
     }
@@ -440,9 +443,9 @@ impl MoveGenerator {
     ///   - `false` for bishop-like diagonal moves.
     pub fn get_slider_moves_at_square<const IS_STRAIGHT: bool>(
         &self,
-        state: &State,
         square: Square,
         friendly_bb: BitBoard,
+        occupied_bb: BitBoard,
     ) -> BitBoard {
         let square_index = square as usize;
 
@@ -458,9 +461,8 @@ impl MoveGenerator {
             BISHOP_PEXT_INDEX[square_index]
         };
 
-        let occupied_bb = state.bb_mngr.get_occupied_bb();
-
-        self.pext_table_lookup(&PEXT_TABLE, pext_index, pext_mask, occupied_bb) & !friendly_bb
+        let moves = self.pext_table_lookup(&PEXT_TABLE, pext_index, pext_mask, occupied_bb);
+        moves & !friendly_bb
     }
 
     fn pext_table_lookup(
@@ -482,9 +484,7 @@ impl MoveGenerator {
 
 impl MoveGenerator {
     pub fn gen_pawn_moves(&mut self, state: &State) {
-        let friendly_pieces_bb = state.bb_mngr.get_side_bb(state.active_side);
         let enemy_pieces_bb = state.bb_mngr.get_side_bb(state.active_side.oppo());
-        let occupancy_bb = friendly_pieces_bb | enemy_pieces_bb;
         let pawn_bb = state.bb_mngr.get_colored_piece_bb(Pawn, state.active_side);
 
         let rank_offset = match state.active_side {
@@ -498,13 +498,14 @@ impl MoveGenerator {
         // double push
         self.double_push(state, pawn_bb & !self.diag_pin_mask, rank_offset);
 
-        let mut possible_captures_bb = enemy_pieces_bb;
-        let mut capture_checkmask = self.check_mask;
+        let mut enemy_occ_and_ep = enemy_pieces_bb;
+        let mut check_mask_and_ep = self.check_mask;
+        // adjust the enemy occ and checkmask by including the ep square if legal
         if self.ep_edgecase_check(state) {
             let ep_square = state.irreversible_data.en_passant_square.unwrap();
 
             // Add ep square to possible captures
-            possible_captures_bb.fill_square(ep_square);
+            enemy_occ_and_ep.fill_square(ep_square);
 
             // This is needed for situation where taking the ep pawn removes the check:
             // 8/8/8/1Ppp3r/RK3p1k/8/4P1P1/8 w - c6 0 1
@@ -514,7 +515,7 @@ impl MoveGenerator {
             };
             let ep_pawn_square = BitBoard::new_from_square(ep_pawn_square);
             if (ep_pawn_square & self.check_mask).is_not_empty() {
-                capture_checkmask.fill_square(ep_square);
+                check_mask_and_ep.fill_square(ep_square);
             }
         }
 
@@ -524,8 +525,9 @@ impl MoveGenerator {
             Side::Black => -9,
         };
         self.one_dir_capture(
-            state,
             pawn_bb & !LEFT_SIDE_BB & !self.straight_pin_mask,
+            enemy_occ_and_ep,
+            check_mask_and_ep,
             rank_offset,
             shift,
             1,
@@ -537,8 +539,9 @@ impl MoveGenerator {
             Side::Black => -7,
         };
         self.one_dir_capture(
-            state,
             pawn_bb & !RIGHT_SIDE_BB & !self.straight_pin_mask,
+            enemy_occ_and_ep,
+            check_mask_and_ep,
             rank_offset,
             shift,
             -1,
@@ -557,13 +560,13 @@ impl MoveGenerator {
             Side::Black => WHITE_DOUBLE_PUSH_BB,
         };
 
-        let captured_pawn_square = match active_side {
+        let ep_pawn_square = match active_side {
             Side::White => en_passant_square - SIDE_LENGTH as u8,
             Side::Black => en_passant_square + SIDE_LENGTH as u8,
         };
-        let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
+        let ep_pawn_bb = BitBoard::new_from_square(ep_pawn_square);
 
-        let friendly_king = state.bb_mngr.get_colored_piece_bb(King, active_side);
+        let mut friendly_king = state.bb_mngr.get_colored_piece_bb(King, active_side);
         let opponent_sliders = state.bb_mngr.get_colored_piece_bb(Queen, opponent_side)
             | state.bb_mngr.get_colored_piece_bb(Rook, opponent_side);
 
@@ -574,13 +577,13 @@ impl MoveGenerator {
         }
 
         let friendly_pawns = state.bb_mngr.get_colored_piece_bb(Pawn, active_side);
-        let left_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !LEFT_SIDE_BB) >> 1);
-        let right_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !RIGHT_SIDE_BB) << 1);
+        let left_capturing_pawn = friendly_pawns & ((ep_pawn_bb & !LEFT_SIDE_BB) >> 1);
+        let right_capturing_pawn = friendly_pawns & ((ep_pawn_bb & !RIGHT_SIDE_BB) << 1);
 
         let friendly_occupancy = state.bb_mngr.get_side_bb(active_side);
-        let opponent_occupancy = state.bb_mngr.get_side_bb(opponent_side) & !captured_pawn_bb;
+        let opponent_occupancy = state.bb_mngr.get_side_bb(opponent_side) & !ep_pawn_bb;
 
-        let king_square = friendly_king.clone().next().unwrap();
+        let king_square = friendly_king.next().unwrap();
 
         let would_expose_king_to_slider = |capturing_pawn: BitBoard| {
             if capturing_pawn.is_empty() {
@@ -588,9 +591,9 @@ impl MoveGenerator {
             }
 
             let king_slider_rays = self.get_slider_moves_at_square::<true>(
-                state,
                 king_square,
-                friendly_occupancy & !capturing_pawn,
+                BitBoard::new(),
+                opponent_occupancy | (friendly_occupancy & !capturing_pawn),
             );
 
             (king_slider_rays & opponent_sliders).is_not_empty()
@@ -599,6 +602,7 @@ impl MoveGenerator {
         !would_expose_king_to_slider(left_capturing_pawn)
             && !would_expose_king_to_slider(right_capturing_pawn)
     }
+
     fn single_push(&mut self, state: &State, pawn_bb: BitBoard, rank_offset: i8) {
         let mut push_pawn_bb = match state.active_side {
             Side::White => (pawn_bb & !self.straight_pin_mask) << 8,
@@ -661,8 +665,9 @@ impl MoveGenerator {
 
     fn one_dir_capture(
         &mut self,
-        state: &State,
         pawn_bb: BitBoard,
+        enemy_occ_and_ep: BitBoard,
+        check_mask_and_ep: BitBoard,
         rank_offset: i8,
         shift: i32,
         file_offset: i8,
@@ -671,9 +676,8 @@ impl MoveGenerator {
             true => (pawn_bb & !self.diag_pin_mask) >> shift.unsigned_abs() as i32,
             false => (pawn_bb & !self.diag_pin_mask) << shift,
         };
-        let enemy_pieces_bb = state.bb_mngr.get_side_bb(state.active_side.oppo());
 
-        let capture_bb = free_pawns & enemy_pieces_bb & self.check_mask;
+        let capture_bb = free_pawns & enemy_occ_and_ep & check_mask_and_ep;
 
         self.pawn_bb_to_moves_no_promotion(
             capture_bb & !PROMOTION_RANKS_BB,
@@ -686,7 +690,7 @@ impl MoveGenerator {
             true => (pawn_bb & self.diag_pin_mask) >> shift.unsigned_abs() as i32,
             false => (pawn_bb & self.diag_pin_mask) << shift,
         };
-        let capture_bb = free_pawns & enemy_pieces_bb & self.check_mask & self.diag_pin_mask;
+        let capture_bb = free_pawns & enemy_occ_and_ep & check_mask_and_ep & self.diag_pin_mask;
         self.pawn_bb_to_moves_no_promotion(
             capture_bb & !PROMOTION_RANKS_BB,
             file_offset,
@@ -768,16 +772,17 @@ impl MoveGenerator {
         piece_type: Piece,
     ) -> BitBoard {
         let friendly_bb = state.bb_mngr.get_side_bb(state.active_side);
+        let occ_bb = state.bb_mngr.get_occupied_bb();
 
         let attacked_squares = match piece_type {
             King => KING_MOVES[target_square as usize],
             Knight => KNIGHT_MOVES[target_square as usize],
             Pawn => PAWN_CAPTURE_MOVES[side as usize][target_square as usize],
-            Rook => self.get_slider_moves_at_square::<true>(state, target_square, friendly_bb),
-            Bishop => self.get_slider_moves_at_square::<false>(state, target_square, friendly_bb),
+            Rook => self.get_slider_moves_at_square::<true>(target_square, friendly_bb, occ_bb),
+            Bishop => self.get_slider_moves_at_square::<false>(target_square, friendly_bb, occ_bb),
             Queen => {
-                self.get_slider_moves_at_square::<true>(state, target_square, friendly_bb)
-                    | self.get_slider_moves_at_square::<false>(state, target_square, friendly_bb)
+                self.get_slider_moves_at_square::<true>(target_square, friendly_bb, occ_bb)
+                    | self.get_slider_moves_at_square::<false>(target_square, friendly_bb, occ_bb)
             }
         };
 

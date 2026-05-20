@@ -73,7 +73,7 @@ impl State {
         let mut next_ir_data = IrreversibleData::new_from_previous_state(&self.irreversible_data);
 
         // Get the type of moved piece.
-        let moved_piece = self.bb_mngr.get_piece_at_square(moove.get_from()).unwrap();
+        let mut moved_piece = self.bb_mngr.get_piece_at_square(moove.get_from()).unwrap();
 
         // Usually the square something was captured on (if something was captured at all) is the square we moved to...
         let mut capture_square = moove.get_to();
@@ -87,9 +87,6 @@ impl State {
         // If something was captured, remove the piece and update irreversible data.
         next_state.make_move_capture(&mut next_ir_data, capture_square);
 
-        // Get the bitboard for the piece that was moved.
-        let mut moved_piece_bb = next_state.bb_mngr.get_piece_bb_mut(moved_piece);
-
         // Clear the square that the piece was moved from.
         next_state
             .bb_mngr
@@ -99,7 +96,7 @@ impl State {
         match moove.get_promotion_type() {
             None => {}
             Some(promotion_type) => {
-                moved_piece_bb = next_state.bb_mngr.get_piece_bb_mut(promotion_type);
+                moved_piece = promotion_type;
             }
         }
         // Fill the square it moved to.
