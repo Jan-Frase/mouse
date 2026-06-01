@@ -1,5 +1,5 @@
 [package]
-name = "Mouse"
+name = "mouse"
 version = "0.1.0"
 edition = "2024"
 build = "gen_caches/build.rs"
