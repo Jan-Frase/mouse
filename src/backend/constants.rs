@@ -5,6 +5,8 @@
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::square::Square;
 
+pub const STARTING_POS: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 pub const SIDE_LENGTH: i8 = 8;
 pub const SQUARES_AMOUNT: usize = 64;
 
@@ -41,6 +43,7 @@ pub const F2: Square = 13;
 pub const G2: Square = 14;
 pub const H2: Square = 15;
 pub const A7: Square = 48;
+
 pub const B7: Square = 49;
 pub const C7: Square = 50;
 pub const D7: Square = 51;

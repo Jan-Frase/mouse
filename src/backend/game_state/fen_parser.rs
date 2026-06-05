@@ -6,8 +6,6 @@ use crate::backend::types::piece::{Piece, Side};
 use crate::backend::types::square::Square;
 use crate::backend::types::square::square_from_rank_and_file;
 
-pub const STARTING_POS: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
 /// Parses a FEN (Forsyth-Edwards Notation) string and updates the corresponding game game_state.
 /// https://www.chessprogramming.org/Forsyth-Edwards_Notation
 ///
