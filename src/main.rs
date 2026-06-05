@@ -1,9 +1,9 @@
-use crate::backend::game_state::fen_parser::moove_from_uci_notation;
 use crate::backend::game_state::state::State;
 use crate::backend::movegen::move_gen::moves;
 use crate::backend::perft::perft;
 use std::env;
 use std::env::Args;
+use crate::backend::types::moove::Moove;
 
 mod backend;
 
@@ -31,7 +31,7 @@ pub fn run_perftree_debug(mut input: Args) {
         // Code golfing
         mooves
             .split_whitespace()
-            .map(moove_from_uci_notation)
+            .map(Moove::moove_from_uci_notation)
             .for_each(|moove| {
                 state = state.make_move(moove);
             });

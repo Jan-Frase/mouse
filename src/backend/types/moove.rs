@@ -1,7 +1,8 @@
 use crate::backend::types::piece::{PROMOTABLE_PIECES, Piece};
-use crate::backend::types::square::{Square, get_file, square_to_string};
+use crate::backend::types::square::{Square, get_file, square_to_string, square_from_rank_and_file};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use crate::backend::types::piece::Piece::*;
 
 #[derive(Copy, Clone)]
 pub enum CastleType {
@@ -84,6 +85,55 @@ impl Moove {
         }
     }
 }
+
+impl From<&str> for Moove {
+    fn from(value: &str) -> Self {
+        Moove::moove_from_uci_notation(value)
+    }
+}
+
+impl Moove {
+    // -------------------
+    // This is used during debugging and the uci interface.
+    #[allow(unused)]
+    fn square_from_uci_notation(uci_notation: &str) -> Square {
+        let mut file = 0;
+        let mut rank = 0;
+
+        for char in uci_notation.chars() {
+            match char {
+                'a'..='h' => file = char.to_digit(36).unwrap() - 10,
+                '1'..='8' => rank = char.to_digit(10).unwrap() - 1,
+                _ => panic!("Invalid uci notation"),
+            }
+        }
+
+        square_from_rank_and_file(rank as i8, file as i8)
+    }
+
+    // This is used during debugging and the uci interface.
+    #[allow(unused)]
+    pub fn moove_from_uci_notation(uci_notation: &str) -> Moove {
+        let from = Moove::square_from_uci_notation(&uci_notation[0..2]);
+        let to = Moove::square_from_uci_notation(&uci_notation[2..4]);
+
+        let promotion_char = uci_notation.chars().nth(4);
+        if let Some(char) = promotion_char {
+            let promotion_type = match char {
+                'r' => (Rook),
+                'n' => (Knight),
+                'b' => (Bishop),
+                'q' => (Queen),
+                _ => panic!("Invalid promotion type {:?}", uci_notation),
+            };
+            return Moove::new_promotion(from, to, promotion_type);
+        };
+
+        Moove::new(from, to)
+    }
+}
+
+
 
 /// Converts a `Move` instance into an uci formatted string.
 impl Display for Moove {
