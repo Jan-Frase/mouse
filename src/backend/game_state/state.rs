@@ -426,7 +426,7 @@ impl State {
     }
 }
 
-// zobrist tests
+// zobrist tests - AI generated use with a bucket of salt
 fn recomputed_hash(state: &State) -> u64 {
     State::new(
         state.bb_mngr.clone(),
