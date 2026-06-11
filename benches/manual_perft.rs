@@ -1,6 +1,6 @@
 use mouse::State;
 use mouse::backend::perft::perft;
-use perft_fixtures::perft_fixtures::{LONG_PERFT, PerftFixture};
+use perft_fixtures::perft_fixtures::{LONG_PERFT, LONGER_PERFT, PerftFixture};
 use std::time::Instant;
 
 pub fn manual_perft() {
@@ -8,6 +8,11 @@ pub fn manual_perft() {
 
     let now = Instant::now();
     for perft_fixture in LONG_PERFT {
+        let nodes = run_nps_perft(perft_fixture);
+        total_nodes += nodes;
+    }
+
+    for perft_fixture in LONGER_PERFT {
         let nodes = run_nps_perft(perft_fixture);
         total_nodes += nodes;
     }
@@ -36,9 +41,12 @@ fn run_nps_perft(perft_fixture: PerftFixture) -> u64 {
 
     let elapsed = now.elapsed();
     let nodes_per_second = nodes as f64 / elapsed.as_secs_f64();
+    println!("Name: {:?}", perft_fixture.perft_setup.name);
     println!(
-        "Name: {:?}, Nps: {:.0}.",
-        perft_fixture.perft_setup.name, nodes_per_second
+        "Total time (ms) \t: {:.0}\n Nodes searched \t: {}\n Nodes/second \t\t: {:.0}\n",
+        elapsed.as_millis(),
+        nodes,
+        nodes_per_second
     );
 
     nodes

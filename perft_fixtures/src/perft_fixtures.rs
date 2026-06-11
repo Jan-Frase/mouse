@@ -100,6 +100,12 @@ const STARTING_POS_LONG: PerftFixture = PerftFixture {
     expected_nodes: 119_060_324,
 };
 
+const STARTING_POS_LONGER: PerftFixture = PerftFixture {
+    perft_setup: STARTING_POS,
+    depth: 7,
+    expected_nodes: 3_195_901_860,
+};
+
 const POSITION_2_FAST: PerftFixture = PerftFixture {
     perft_setup: POSITION_2,
     depth: 3,
@@ -116,6 +122,12 @@ const POSITION_2_LONG: PerftFixture = PerftFixture {
     perft_setup: POSITION_2,
     depth: 5,
     expected_nodes: 193_690_690,
+};
+
+const POSITION_2_LONGER: PerftFixture = PerftFixture {
+    perft_setup: POSITION_2,
+    depth: 6,
+    expected_nodes: 8_031_647_685,
 };
 
 const POSITION_3_FAST: PerftFixture = PerftFixture {
@@ -218,3 +230,5 @@ pub const LONG_PERFT: [PerftFixture; 6] = [
     POSITION_5_LONG,
     POSITION_6_LONG,
 ];
+
+pub const LONGER_PERFT: [PerftFixture; 2] = [STARTING_POS_LONGER, POSITION_2_LONGER];

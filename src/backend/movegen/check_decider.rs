@@ -8,6 +8,14 @@ use crate::backend::types::square::Square;
 
 const CHECKING_PIECES_WITHOUT_KING: [Piece; 5] = [Rook, Knight, Bishop, Queen, Pawn];
 
+pub fn is_in_check(state: &State) -> bool {
+    let side = state.active_side;
+    let mut king_bb = state.bb_mngr.get_piece_bb(King) & state.bb_mngr.get_side_bb(side);
+    let king_square = king_bb.next().unwrap();
+
+    is_in_check_on_square(state, side, king_square)
+}
+
 // Idea:
 // If, for example, side == white, we want to figure out if white is currently in check.
 // We then pretend that the white king is one after the other replaced by: pawn, rook, bishop, queen, king.
@@ -39,7 +47,6 @@ pub fn is_in_check_on_square(state: &State, side: Side, king_square: Square) -> 
 
     false
 }
-
 
 pub fn checkers(state: &State) -> BitBoard {
     let side = state.active_side;

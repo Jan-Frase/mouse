@@ -2,6 +2,8 @@ use crate::backend::constants::{A1, A8, H1, H8};
 use crate::backend::game_state::bb_manager::BBManager;
 use crate::backend::game_state::fen_parser::parse_fen;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
+use crate::backend::movegen::check_decider::is_in_check;
+use crate::backend::movegen::move_gen::moves;
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::moove::{CastleType, Moove};
 use crate::backend::types::piece::Piece::{King, Pawn, Rook};
@@ -25,6 +27,7 @@ pub struct State {
     pub half_move_clock: u16,
 }
 
+// The core of state
 impl State {
     /// Creates a new `GameState` instance with default values.
     /// This is not turned into a `default` as many constructors in this program need to be const.
@@ -240,5 +243,16 @@ impl State {
                 Side::Black => H8,
             },
         }
+    }
+}
+
+// A bunch of API helpers
+impl State {
+    pub fn is_in_check(&self) -> bool {
+        is_in_check(self)
+    }
+
+    pub fn gen_moves(&mut self) -> Vec<Moove> {
+        moves(self)
     }
 }

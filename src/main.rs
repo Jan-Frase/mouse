@@ -1,15 +1,24 @@
 use crate::backend::game_state::state::State;
 use crate::backend::movegen::move_gen::moves;
 use crate::backend::perft::perft;
-use std::env;
 use std::env::Args;
 use crate::backend::types::moove::Moove;
 
 mod backend;
 
 fn main() {
-    let args = env::args();
-    run_perftree_debug(args);
+    // let mut state = State::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    // root_debug_perft(&mut state, 7);
+
+    // let args = env::args();
+    // run_perftree_debug(args);
+
+    let mut state = State::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    let _ = perft(&mut state, 7);
+
+    let mut state =
+        State::new_from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let _ = perft(&mut state, 6);
 }
 
 // --------------------------------------------- //
