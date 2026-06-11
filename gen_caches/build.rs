@@ -4,14 +4,17 @@ mod build_util;
 mod cache_between;
 mod caches_non_sliders;
 mod caches_sliders;
+mod zobrist_hashes;
 
 const DIR_PATH: &str = "src/backend/";
 
 fn main() {
     println!("cargo:rerun-if-changed=gen_caches/build.rs");
+    println!("cargo:rerun-if-changed=gen_caches/build_util");
+    println!("cargo:rerun-if-changed=gen_caches/cache_between");
     println!("cargo:rerun-if-changed=gen_caches/caches_non_sliders");
     println!("cargo:rerun-if-changed=gen_caches/caches_sliders");
-    println!("cargo:rerun-if-changed=gen_caches/build_util");
+    println!("cargo:rerun-if-changed=gen_caches/zobrist_hashes");
     println!("cargo:rerun-if-changed=src/backend/caches.rs");
 
     let mut king_moves = [0u64; 64];
@@ -32,7 +35,37 @@ fn main() {
 
     let xray_pext_data = caches_sliders::gen_cache_sliders(true);
 
+    let zobrist_randoms = zobrist_hashes::zobrist_randoms();
+
     let cache_strings = [
+        format!(
+            "pub const ZOBRIST_PIECES_RNGS: [[[u64; 2]; 6]; 64] = unsafe{{std::mem::transmute({})}};",
+            three_d_array_to_string(&zobrist_randoms.pieces)
+        ),
+        format!(
+            "pub const ZOBRIST_EP_RNGS: [u64; 8] = unsafe{{std::mem::transmute({})}};",
+            array_to_string(&zobrist_randoms.en_passant_file)
+        ),
+        format!(
+            "pub const ZOBRIST_WHITE_LONG_CASTLE_RNGS: u64 = {};",
+            zobrist_randoms.white_long_castle_rights
+        ),
+        format!(
+            "pub const ZOBRIST_WHITE_SHORT_CASTLE_RNGS: u64 = {};",
+            zobrist_randoms.white_short_castle_rights
+        ),
+        format!(
+            "pub const ZOBRIST_BLACK_LONG_CASTLE_RNGS: u64 = {};",
+            zobrist_randoms.black_long_castle_rights
+        ),
+        format!(
+            "pub const ZOBRIST_BLACK_SHORT_CASTLE_RNGS: u64 = {};",
+            zobrist_randoms.black_short_castle_rights
+        ),
+        format!(
+            "pub const ZOBRIST_BLACK_TO_MOVE: u64 = {};",
+            zobrist_randoms.black_to_move
+        ),
         format!(
             "pub const KING_MOVES: [BitBoard; SQUARES_AMOUNT] = unsafe{{std::mem::transmute({})}};",
             array_to_string(&king_moves)
@@ -129,6 +162,21 @@ fn two_d_array_to_string<const M: usize, const N: usize>(array: &[[u64; N]; M]) 
 
     for inner_array in array {
         string.push_str(array_to_string(inner_array).as_str());
+        string.push(',');
+    }
+
+    string.push(']');
+    string
+}
+
+fn three_d_array_to_string<const M: usize, const N: usize, const O: usize>(
+    array: &[[[u64; O]; N]; M],
+) -> String {
+    let mut string = String::new();
+    string.push('[');
+
+    for inner_array in array {
+        string.push_str(two_d_array_to_string(inner_array).as_str());
         string.push(',');
     }
 

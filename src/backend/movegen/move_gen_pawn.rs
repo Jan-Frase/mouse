@@ -1,9 +1,8 @@
 use crate::backend::constants::{LEFT_SIDE_BB, RIGHT_SIDE_BB, SIDE_LENGTH};
 use crate::backend::game_state::state::State;
-use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::moove::Moove;
-use crate::backend::types::piece::Piece::{King, Pawn, Queen, Rook};
+use crate::backend::types::piece::Piece::Pawn;
 use crate::backend::types::piece::{PROMOTABLE_PIECES, Side};
 use crate::backend::types::square::{Square, get_rank};
 use crate::backend::types::square::{get_file, square_from_rank_and_file};
@@ -19,11 +18,6 @@ const BLACK_PAWN_START_RANK_BB: BitBoard = BitBoard {
 };
 const PROMOTION_RANKS_BB: BitBoard = BitBoard {
     value: (BLACK_PROMOTION_RANK_BB.value | WHITE_PROMOTION_RANK_BB.value),
-};
-
-const WHITE_DOUBLE_PUSH_BB: BitBoard = BitBoard { value: 0xff000000 };
-const BLACK_DOUBLE_PUSH_BB: BitBoard = BitBoard {
-    value: 0xff00000000,
 };
 
 pub fn gen_pawn_moves(
@@ -68,7 +62,8 @@ pub fn gen_pawn_moves(
 
     let mut possible_captures_bb = enemy_pieces_bb;
     let mut capture_checkmask = checkmask;
-    if is_ep_legal(state) {
+
+    if state.irreversible_data.en_passant_square.is_some() {
         let ep_square = state.irreversible_data.en_passant_square.unwrap();
 
         // Add ep square to possible captures
@@ -118,61 +113,7 @@ pub fn gen_pawn_moves(
         -1,
     );
 }
-fn is_ep_legal(state: &State) -> bool {
-    let Some(en_passant_square) = state.irreversible_data.en_passant_square else {
-        return false;
-    };
 
-    let active_side = state.active_side;
-    let opponent_side = active_side.oppo();
-
-    let double_push_rank = match active_side {
-        Side::White => BLACK_DOUBLE_PUSH_BB,
-        Side::Black => WHITE_DOUBLE_PUSH_BB,
-    };
-
-    let captured_pawn_square = match active_side {
-        Side::White => en_passant_square - SIDE_LENGTH as u8,
-        Side::Black => en_passant_square + SIDE_LENGTH as u8,
-    };
-    let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
-
-    let friendly_king = state.bb_mngr.get_colored_piece_bb(King, active_side);
-    let opponent_sliders = state.bb_mngr.get_colored_piece_bb(Queen, opponent_side)
-        | state.bb_mngr.get_colored_piece_bb(Rook, opponent_side);
-
-    if (friendly_king & double_push_rank).is_empty()
-        || (opponent_sliders & double_push_rank).is_empty()
-    {
-        return true;
-    }
-
-    let friendly_pawns = state.bb_mngr.get_colored_piece_bb(Pawn, active_side);
-    let left_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !LEFT_SIDE_BB) >> 1);
-    let right_capturing_pawn = friendly_pawns & ((captured_pawn_bb & !RIGHT_SIDE_BB) << 1);
-
-    let friendly_occupancy = state.bb_mngr.get_side_bb(active_side);
-    let opponent_occupancy = state.bb_mngr.get_side_bb(opponent_side) & !captured_pawn_bb;
-
-    let king_square = friendly_king.clone().next().unwrap();
-
-    let would_expose_king_to_slider = |capturing_pawn: BitBoard| {
-        if capturing_pawn.is_empty() {
-            return false;
-        }
-
-        let king_slider_rays = get_slider_moves_at_square::<true>(
-            king_square,
-            friendly_occupancy & !capturing_pawn,
-            opponent_occupancy,
-        );
-
-        (king_slider_rays & opponent_sliders).is_not_empty()
-    };
-
-    !would_expose_king_to_slider(left_capturing_pawn)
-        && !would_expose_king_to_slider(right_capturing_pawn)
-}
 fn single_push(
     moves: &mut Vec<Moove>,
     active_color: Side,

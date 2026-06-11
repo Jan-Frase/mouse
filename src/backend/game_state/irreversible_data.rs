@@ -8,6 +8,7 @@ use crate::backend::types::square::Square;
 pub struct IrreversibleData {
     pub captured_piece: Option<Piece>,
     pub en_passant_square: Option<Square>,
+    // TODO: squeeze this into a bitfield?
     pub white_long_castle_rights: bool,
     pub white_short_castle_rights: bool,
     pub black_long_castle_rights: bool,
@@ -59,6 +60,13 @@ impl IrreversibleData {
         match color {
             Side::White => self.white_short_castle_rights,
             Side::Black => self.black_short_castle_rights,
+        }
+    }
+
+    pub fn get_castle_rights(&self, color: Side, castle_type: CastleType) -> bool {
+        match castle_type {
+            CastleType::Long => self.get_long_castle_rights(color),
+            CastleType::Short => self.get_short_castle_rights(color),
         }
     }
 

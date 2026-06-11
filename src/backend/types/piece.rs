@@ -25,7 +25,7 @@ pub const ALL_PIECES: [Piece; 6] = [
 pub const PROMOTABLE_PIECES: [Piece; 4] = [Piece::Rook, Piece::Knight, Piece::Bishop, Piece::Queen];
 
 /// Represents the color of a piece.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Side {
     White,
     Black,
@@ -39,8 +39,6 @@ impl Side {
             Side::Black => Side::White,
         }
     }
-
-    pub fn get_all_colors() -> [Side; 2] {
-        [Side::White, Side::Black]
-    }
 }
+
+pub const ALL_SIDES: [Side; 2] = [Side::White, Side::Black];

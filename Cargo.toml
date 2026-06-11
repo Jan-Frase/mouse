@@ -30,3 +30,6 @@ harness = false
 [[bench]]
 name = "manual_perft"
 harness = false
+
+[build-dependencies]
+rand = "0.10.1"
