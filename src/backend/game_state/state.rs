@@ -120,6 +120,7 @@ impl State {
     /// * `chess_move` - A `Moove` object representing the move to be made.
     pub fn make_move(&self, moove: Moove) -> State {
         let mut next_state = self.clone();
+        next_state.half_move_clock += 1;
         // The new irreversible data.
         let mut next_ir_data = IrreversibleData::new_from_previous_state(&self.irreversible_data);
         // Remove the previous ep file from the hash.
@@ -134,6 +135,8 @@ impl State {
         // Usually the square something was captured on (if something was captured at all) is the square we moved to...
         let mut capture_square = moove.get_to();
         if moved_piece == Pawn {
+            // This is a pawn move, reset the half-move clock.
+            next_state.half_move_clock = 0;
             // ... unless this is an en passant capture, we then need to update the capture square.
             next_state.make_move_ep_capture(moove, &mut capture_square);
             // Check if a double pawn push was played and store the en passant file
@@ -212,6 +215,8 @@ impl State {
         let captured_piece = self.bb_mngr.get_piece_at_square(capture_square);
         // Clear the square on the captured piece's bitboard if it exists.
         if let Some(captured_piece) = captured_piece {
+            // Something was captured! Reset the half-move clock.
+            self.half_move_clock = 0;
             // Store the captured piece type in the irreversible data.
             irreversible_data.captured_piece = Some(captured_piece);
             // Remove the captured piece from its bitboard.
