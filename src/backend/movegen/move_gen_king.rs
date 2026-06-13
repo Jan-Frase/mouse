@@ -63,7 +63,7 @@ fn gen_castle(
     // are we moving through checks?
     for square in squares_the_king_moves_through.iter() {
         // if so -> stop
-        if is_in_check_on_square(state, state.active_side, *square) {
+        if is_in_check_on_square(state, state.active_side, *square, state.bb_mngr.get_side_bb(state.active_side)) {
             return;
         }
     }

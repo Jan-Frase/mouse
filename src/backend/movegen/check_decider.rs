@@ -13,7 +13,7 @@ pub fn is_in_check(state: &State) -> bool {
     let mut king_bb = state.bb_mngr.get_piece_bb(King) & state.bb_mngr.get_side_bb(side);
     let king_square = king_bb.next().unwrap();
 
-    is_in_check_on_square(state, side, king_square)
+    is_in_check_on_square(state, side, king_square, state.bb_mngr.get_side_bb(side))
 }
 
 // Idea:
@@ -26,8 +26,7 @@ pub fn is_in_check(state: &State) -> bool {
 // We can & this bitboard with the bitboard for black bishops and realize that it is not empty.
 // Thus, we now know that the white king is in check by a black bishop.
 // I hope this makes sense :)
-pub fn is_in_check_on_square(state: &State, side: Side, king_square: Square) -> bool {
-    let friendly_bb = state.bb_mngr.get_side_bb(side);
+pub fn is_in_check_on_square(state: &State, side: Side, king_square: Square, friendly_bb: BitBoard) -> bool {
     let enemy_bb = state.bb_mngr.get_side_bb(side.oppo());
 
     for piece_type in ALL_PIECES {

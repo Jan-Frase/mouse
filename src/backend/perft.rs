@@ -8,7 +8,7 @@ pub fn perft(state: &mut State, depth: u8) -> u64 {
     }
      */
 
-    let moves = moves(state);
+    let moves = state.gen_moves();
     if depth == 1 {
         return moves.len() as u64;
     }

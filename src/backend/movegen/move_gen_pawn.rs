@@ -24,9 +24,8 @@ pub fn gen_pawn_moves(
     moves: &mut Vec<Moove>,
     state: &State,
     checkmask: BitBoard,
-    straight_pin_mask: BitBoard,
-    diag_pin_mask: BitBoard,
     active_color: Side,
+    captures_only: bool,
 ) {
     let friendly_pieces_bb = state.bb_mngr.get_side_bb(active_color);
     let enemy_pieces_bb = state.bb_mngr.get_side_bb(active_color.oppo());
@@ -38,48 +37,51 @@ pub fn gen_pawn_moves(
         Side::Black => 1,
     };
 
-    // single push
-    single_push(
-        moves,
-        active_color,
-        occupancy_bb,
-        checkmask,
-        straight_pin_mask,
-        pawn_bb & !diag_pin_mask,
-        rank_offset,
-    );
-
-    // double push
-    double_push(
-        moves,
-        active_color,
-        occupancy_bb,
-        checkmask,
-        straight_pin_mask,
-        pawn_bb & !diag_pin_mask,
-        rank_offset,
-    );
-
     let mut possible_captures_bb = enemy_pieces_bb;
     let mut capture_checkmask = checkmask;
+    if !captures_only {
+        // single push
+        single_push(
+            moves,
+            state,
+            active_color,
+            occupancy_bb,
+            checkmask,
+            pawn_bb & !state.diag_pin_mask,
+            rank_offset,
+        );
 
-    if state.irreversible_data.en_passant_square.is_some() {
-        let ep_square = state.irreversible_data.en_passant_square.unwrap();
+        // double push
+        double_push(
+            moves,
+            state,
+            active_color,
+            occupancy_bb,
+            checkmask,
+            pawn_bb & !state.diag_pin_mask,
+            rank_offset,
+        );
 
-        // Add ep square to possible captures
-        possible_captures_bb.fill_square(ep_square);
 
-        // This is needed for situation where taking the ep pawn removes the check:
-        // 8/8/8/1Ppp3r/RK3p1k/8/4P1P1/8 w - c6 0 1
-        let ep_pawn_square = match state.active_side {
-            Side::White => ep_square - SIDE_LENGTH as u8,
-            Side::Black => ep_square + SIDE_LENGTH as u8,
-        };
-        let ep_pawn_square = BitBoard::new_from_square(ep_pawn_square);
-        if (ep_pawn_square & checkmask).is_not_empty() {
-            capture_checkmask.fill_square(ep_square);
+        if state.irreversible_data.en_passant_square.is_some() {
+            let ep_square = state.irreversible_data.en_passant_square.unwrap();
+
+            // Add ep square to possible captures
+            possible_captures_bb.fill_square(ep_square);
+
+            // This is needed for situation where taking the ep pawn removes the check:
+            // 8/8/8/1Ppp3r/RK3p1k/8/4P1P1/8 w - c6 0 1
+            let ep_pawn_square = match state.active_side {
+                Side::White => ep_square - SIDE_LENGTH as u8,
+                Side::Black => ep_square + SIDE_LENGTH as u8,
+            };
+            let ep_pawn_square = BitBoard::new_from_square(ep_pawn_square);
+            if (ep_pawn_square & checkmask).is_not_empty() {
+                capture_checkmask.fill_square(ep_square);
+            }
         }
     }
+
 
     // left captures
     let shift = match active_color {
@@ -89,9 +91,9 @@ pub fn gen_pawn_moves(
     one_dir_capture(
         moves,
         possible_captures_bb,
-        pawn_bb & !LEFT_SIDE_BB & !straight_pin_mask,
+        pawn_bb & !LEFT_SIDE_BB & !state.straight_pin_mask,
         capture_checkmask,
-        diag_pin_mask,
+        state.diag_pin_mask,
         rank_offset,
         shift,
         1,
@@ -105,9 +107,9 @@ pub fn gen_pawn_moves(
     one_dir_capture(
         moves,
         possible_captures_bb,
-        pawn_bb & !RIGHT_SIDE_BB & !straight_pin_mask,
+        pawn_bb & !RIGHT_SIDE_BB & !state.straight_pin_mask,
         capture_checkmask,
-        diag_pin_mask,
+        state.diag_pin_mask,
         rank_offset,
         shift,
         -1,
@@ -116,16 +118,16 @@ pub fn gen_pawn_moves(
 
 fn single_push(
     moves: &mut Vec<Moove>,
+    state: &State,
     active_color: Side,
     occupancy_bb: BitBoard,
     checkmask_bb: BitBoard,
-    straight_pin_mask: BitBoard,
     pawn_bb: BitBoard,
     rank_offset: i8,
 ) {
     let mut push_pawn_bb = match active_color {
-        Side::White => (pawn_bb & !straight_pin_mask) << 8,
-        Side::Black => (pawn_bb & !straight_pin_mask) >> 8,
+        Side::White => (pawn_bb & !state.straight_pin_mask) << 8,
+        Side::Black => (pawn_bb & !state.straight_pin_mask) >> 8,
     };
     // cant go there if something is there or if the checkmask forbids it
     push_pawn_bb &= !occupancy_bb & checkmask_bb;
@@ -133,31 +135,31 @@ fn single_push(
     pawn_bb_to_moves_promotion(moves, push_pawn_bb & PROMOTION_RANKS_BB, 0, rank_offset);
 
     let mut push_pawn_bb = match active_color {
-        Side::White => (pawn_bb & straight_pin_mask) << 8,
-        Side::Black => (pawn_bb & straight_pin_mask) >> 8,
+        Side::White => (pawn_bb & state.straight_pin_mask) << 8,
+        Side::Black => (pawn_bb & state.straight_pin_mask) >> 8,
     };
     // cant go there if something is there or if the checkmask forbids it
-    push_pawn_bb &= !occupancy_bb & checkmask_bb & straight_pin_mask;
+    push_pawn_bb &= !occupancy_bb & checkmask_bb & state.straight_pin_mask;
     pawn_bb_to_moves_no_promotion(moves, push_pawn_bb & !PROMOTION_RANKS_BB, 0, rank_offset);
     pawn_bb_to_moves_promotion(moves, push_pawn_bb & PROMOTION_RANKS_BB, 0, rank_offset);
 }
 
 fn double_push(
     moves: &mut Vec<Moove>,
+    state: &State,
     active_color: Side,
     occupancy_bb: BitBoard,
     checkmask_bb: BitBoard,
-    straight_pin_mask: BitBoard,
     pawn_bb: BitBoard,
     rank_offset: i8,
 ) {
     let double_push_bb = match active_color {
         Side::White => {
-            (((pawn_bb & WHITE_PAWN_START_RANK_BB & !straight_pin_mask) << 8) & !occupancy_bb) << 8
+            (((pawn_bb & WHITE_PAWN_START_RANK_BB & !state.straight_pin_mask) << 8) & !occupancy_bb) << 8
                 & !occupancy_bb
         }
         Side::Black => {
-            (((pawn_bb & BLACK_PAWN_START_RANK_BB & !straight_pin_mask) >> 8) & !occupancy_bb) >> 8
+            (((pawn_bb & BLACK_PAWN_START_RANK_BB & !state.straight_pin_mask) >> 8) & !occupancy_bb) >> 8
                 & !occupancy_bb
         }
     };
@@ -165,17 +167,17 @@ fn double_push(
 
     let double_push_bb = match active_color {
         Side::White => {
-            (((pawn_bb & WHITE_PAWN_START_RANK_BB & straight_pin_mask) << 8) & !occupancy_bb) << 8
+            (((pawn_bb & WHITE_PAWN_START_RANK_BB & state.straight_pin_mask) << 8) & !occupancy_bb) << 8
                 & !occupancy_bb
         }
         Side::Black => {
-            (((pawn_bb & BLACK_PAWN_START_RANK_BB & straight_pin_mask) >> 8) & !occupancy_bb) >> 8
+            (((pawn_bb & BLACK_PAWN_START_RANK_BB & state.straight_pin_mask) >> 8) & !occupancy_bb) >> 8
                 & !occupancy_bb
         }
     };
     pawn_bb_to_moves_no_promotion(
         moves,
-        double_push_bb & checkmask_bb & straight_pin_mask,
+        double_push_bb & checkmask_bb & state.straight_pin_mask,
         0,
         2 * rank_offset,
     );

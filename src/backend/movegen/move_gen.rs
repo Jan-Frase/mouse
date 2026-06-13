@@ -17,10 +17,12 @@ const NO_CHECK_ATTACKERS: u32 = 0;
 
 /// Generates and returns all legal moves for the current player's pieces
 /// based on the provided game state.
-pub fn moves(state: &mut State) -> Vec<Moove> {
+pub fn moves(state: &State, captures_only: bool) -> Vec<Moove> {
     let active_side = state.active_side;
     let friendly_pieces_bb = state.bb_mngr.get_side_bb(active_side);
     let enemy_pieces_bb = state.bb_mngr.get_side_bb(active_side.oppo());
+
+    let captures_only_mask = if captures_only {enemy_pieces_bb} else {BitBoard { value: u64::MAX }};
 
     let checking_squares = checkers(state);
     let checking_piece_count = checking_squares.value.count_ones();
@@ -29,7 +31,7 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
 
     let mut moves = Vec::with_capacity(INITIAL_MOVE_CAPACITY);
 
-    gen_king_moves(&mut moves, state, friendly_pieces_bb);
+    gen_king_moves(&mut moves, state, friendly_pieces_bb, captures_only_mask);
 
     if is_double_check {
         return moves;
@@ -43,22 +45,15 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
 
     let check_mask = build_check_mask(checking_squares, king_square, is_not_in_check);
 
-    let occupied_bb = friendly_pieces_bb | enemy_pieces_bb;
-    let (straight_pin_mask, diag_pin_mask) =
-        build_pin_masks(state, king_square, occupied_bb, enemy_pieces_bb);
-
-    remove_illegal_en_passant_if_pinned(state, diag_pin_mask);
-
     gen_knight_moves(
         &mut moves,
         state,
         friendly_pieces_bb,
         check_mask,
-        straight_pin_mask,
-        diag_pin_mask,
+        captures_only_mask
     );
 
-    if is_not_in_check {
+    if !captures_only & is_not_in_check {
         gen_castles(&mut moves, state, state.bb_mngr.get_occupied_bb());
     }
 
@@ -66,9 +61,8 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
         &mut moves,
         state,
         check_mask,
-        straight_pin_mask,
-        diag_pin_mask,
         active_side,
+        captures_only
     );
 
     gen_bishop_and_queen_moves(
@@ -77,8 +71,7 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
         friendly_pieces_bb,
         enemy_pieces_bb,
         check_mask,
-        straight_pin_mask,
-        diag_pin_mask,
+        captures_only_mask
     );
 
     gen_rook_and_queen_moves(
@@ -87,42 +80,26 @@ pub fn moves(state: &mut State) -> Vec<Moove> {
         friendly_pieces_bb,
         enemy_pieces_bb,
         check_mask,
-        straight_pin_mask,
-        diag_pin_mask,
+        captures_only_mask
     );
 
     moves
 }
 
-fn gen_king_moves(moves: &mut Vec<Moove>, state: &mut State, friendly_pieces_bb: BitBoard) {
+fn gen_king_moves(moves: &mut Vec<Moove>, state: &State, friendly_pieces_bb: BitBoard, mask: BitBoard) {
     let king_bb = state.bb_mngr.get_colored_piece_bb(King, state.active_side);
+    // this is needed for cases like: k3rR2/8/8/5n2/8/4K3/8/8 w - - 0 1
+    // if we attempt t move down, the king blocks its own check otherwise
+    let friendly_bb_without_king = friendly_pieces_bb & !king_bb;
 
     for from_square in king_bb {
-        let legal_targets_bb = KING_MOVES[from_square as usize] & !friendly_pieces_bb;
-
-        state
-            .bb_mngr
-            .get_piece_bb_mut(King)
-            .clear_square(from_square);
-        state
-            .bb_mngr
-            .get_side_bb_mut(state.active_side)
-            .clear_square(from_square);
+        let legal_targets_bb = KING_MOVES[from_square as usize] & !friendly_pieces_bb & mask;
 
         for to_square in legal_targets_bb {
-            if !is_in_check_on_square(state, state.active_side, to_square) {
+            if !is_in_check_on_square(state, state.active_side, to_square, friendly_bb_without_king) {
                 moves.push(Moove::new(from_square, to_square));
             }
         }
-
-        state
-            .bb_mngr
-            .get_piece_bb_mut(King)
-            .fill_square(from_square);
-        state
-            .bb_mngr
-            .get_side_bb_mut(state.active_side)
-            .fill_square(from_square);
     }
 }
 
@@ -146,71 +123,21 @@ fn build_check_mask(
     check_mask
 }
 
-fn build_pin_masks(
-    state: &State,
-    king_square: Square,
-    occupied_bb: BitBoard,
-    enemy_pieces_bb: BitBoard,
-) -> (BitBoard, BitBoard) {
-    let straight_xray_bb = get_slider_xray_moves_at_square::<true>(king_square, occupied_bb);
-    let diag_xray_bb = get_slider_xray_moves_at_square::<false>(king_square, occupied_bb);
-
-    let straight_xray_attackers_bb = straight_xray_bb
-        & (state.bb_mngr.get_piece_bb(Rook) | state.bb_mngr.get_piece_bb(Queen))
-        & enemy_pieces_bb;
-
-    let diag_xray_attackers_bb = diag_xray_bb
-        & (state.bb_mngr.get_piece_bb(Bishop) | state.bb_mngr.get_piece_bb(Queen))
-        & enemy_pieces_bb;
-
-    (
-        build_pin_mask(straight_xray_attackers_bb, king_square),
-        build_pin_mask(diag_xray_attackers_bb, king_square),
-    )
-}
-
-fn build_pin_mask(xray_attackers_bb: BitBoard, king_square: Square) -> BitBoard {
-    let mut pin_mask = BitBoard { value: 0 };
-
-    for attacker_square in xray_attackers_bb {
-        // The order of indices is important:
-        // the attacker square is included, while the king square is not.
-        // This keeps capturing the pinning piece legal.
-        pin_mask |= BETWEEN_TABLE[attacker_square as usize][king_square as usize];
-    }
-
-    pin_mask
-}
-
-fn remove_illegal_en_passant_if_pinned(state: &mut State, diag_pin_mask: BitBoard) {
-    let Some(en_passant_square) = state.irreversible_data.en_passant_square else {
-        return;
-    };
-
-    let captured_pawn_square = back_by_one(en_passant_square, state.active_side);
-    let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
-
-    if (captured_pawn_bb & diag_pin_mask).is_not_empty() {
-        state.irreversible_data.en_passant_square = None;
-    }
-}
-
 fn gen_knight_moves(
     moves: &mut Vec<Moove>,
-    state: &mut State,
+    state: &State,
     friendly_pieces_bb: BitBoard,
     check_mask: BitBoard,
-    straight_pin_mask: BitBoard,
-    diag_pin_mask: BitBoard,
+    captures_only_mask: BitBoard
 ) {
     let knights = state
         .bb_mngr
         .get_colored_piece_bb(Knight, state.active_side)
-        & !(straight_pin_mask | diag_pin_mask);
+        & !(state.straight_pin_mask | state.diag_pin_mask);
 
     for from_square in knights {
         let legal_targets_bb =
-            KNIGHT_MOVES[from_square as usize] & check_mask & !friendly_pieces_bb;
+            KNIGHT_MOVES[from_square as usize] & check_mask & !friendly_pieces_bb & captures_only_mask;
 
         convert_bitboard_to_moves(moves, from_square, legal_targets_bb);
     }
@@ -222,8 +149,7 @@ fn gen_bishop_and_queen_moves(
     friendly_pieces_bb: BitBoard,
     enemy_pieces_bb: BitBoard,
     check_mask: BitBoard,
-    straight_pin_mask: BitBoard,
-    diag_pin_mask: BitBoard,
+    captures_only_mask: BitBoard
 ) {
     let bishop_like_pieces_bb = state
         .bb_mngr
@@ -233,11 +159,12 @@ fn gen_bishop_and_queen_moves(
     get_slider_moves(
         moves,
         Bishop,
-        bishop_like_pieces_bb & !straight_pin_mask,
+        bishop_like_pieces_bb & !state.straight_pin_mask,
         friendly_pieces_bb,
         enemy_pieces_bb,
         check_mask,
-        diag_pin_mask,
+        state.diag_pin_mask,
+        captures_only_mask
     );
 }
 
@@ -247,8 +174,7 @@ fn gen_rook_and_queen_moves(
     friendly_pieces_bb: BitBoard,
     enemy_pieces_bb: BitBoard,
     check_mask: BitBoard,
-    straight_pin_mask: BitBoard,
-    diag_pin_mask: BitBoard,
+    captures_only_mask: BitBoard
 ) {
     let rook_like_pieces_bb = state.bb_mngr.get_colored_piece_bb(Rook, state.active_side)
         | state.bb_mngr.get_colored_piece_bb(Queen, state.active_side);
@@ -256,11 +182,12 @@ fn gen_rook_and_queen_moves(
     get_slider_moves(
         moves,
         Rook,
-        rook_like_pieces_bb & !diag_pin_mask,
+        rook_like_pieces_bb & !state.diag_pin_mask,
         friendly_pieces_bb,
         enemy_pieces_bb,
         check_mask,
-        straight_pin_mask,
+        state.straight_pin_mask,
+        captures_only_mask
     );
 }
 
@@ -271,5 +198,68 @@ pub fn convert_bitboard_to_moves(
 ) {
     for to_square in moves_bitboard {
         moves.push(Moove::new(from_square, to_square));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::game_state::state::State;
+
+    fn is_capture(state: &State, moove: &Moove) -> bool {
+        let enemy_pieces_bb = state.bb_mngr.get_side_bb(state.active_side.oppo());
+        let to_square_bb = BitBoard::new_from_square(moove.get_to());
+        (enemy_pieces_bb & to_square_bb).is_not_empty()
+    }
+
+    #[test]
+    fn test_captures_only_generates_all_captures() {
+        // Test with starting position
+        let state = State::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        verify_captures_only(&state);
+
+        // Test with position 2
+        let state = State::new_from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+        verify_captures_only(&state);
+
+        // Test with position 3
+        let state = State::new_from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
+        verify_captures_only(&state);
+
+        // Test with position 4
+        let state = State::new_from_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
+        verify_captures_only(&state);
+    }
+
+    fn verify_captures_only(state: &State) {
+        let all_moves = moves(state, false);
+        let captures_from_all: Vec<Moove> = all_moves
+            .iter()
+            .filter(|m| is_capture(state, m))
+            .copied()
+            .collect();
+
+        let mut captures_only = moves(state, true);
+
+        // Sort both lists for comparison
+        let mut expected = captures_from_all.clone();
+        expected.sort();
+        captures_only.sort();
+
+        assert_eq!(
+            captures_only.len(),
+            expected.len(),
+            "Number of captures should match. captures_only={}, expected={}",
+            captures_only.len(),
+            expected.len()
+        );
+
+        for (i, (actual, expected)) in captures_only.iter().zip(expected.iter()).enumerate() {
+            assert_eq!(
+                actual, expected,
+                "Capture move at index {} differs: actual={}, expected={}",
+                i, actual, expected
+            );
+        }
     }
 }

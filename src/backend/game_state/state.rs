@@ -1,18 +1,14 @@
-use crate::backend::caches::{
-    ZOBRIST_BLACK_LONG_CASTLE_RNGS, ZOBRIST_BLACK_SHORT_CASTLE_RNGS, ZOBRIST_BLACK_TO_MOVE,
-    ZOBRIST_EP_RNGS, ZOBRIST_PIECES_RNGS, ZOBRIST_WHITE_LONG_CASTLE_RNGS,
-    ZOBRIST_WHITE_SHORT_CASTLE_RNGS,
-};
+use crate::backend::caches::{BETWEEN_TABLE, ZOBRIST_BLACK_LONG_CASTLE_RNGS, ZOBRIST_BLACK_SHORT_CASTLE_RNGS, ZOBRIST_BLACK_TO_MOVE, ZOBRIST_EP_RNGS, ZOBRIST_PIECES_RNGS, ZOBRIST_WHITE_LONG_CASTLE_RNGS, ZOBRIST_WHITE_SHORT_CASTLE_RNGS};
 use crate::backend::constants::*;
 use crate::backend::game_state::bb_manager::BBManager;
 use crate::backend::game_state::fen_parser::parse_fen;
 use crate::backend::game_state::irreversible_data::IrreversibleData;
 use crate::backend::movegen::check_decider::is_in_check;
 use crate::backend::movegen::move_gen::moves;
-use crate::backend::movegen::move_gen_sliders::get_slider_moves_at_square;
+use crate::backend::movegen::move_gen_sliders::{get_slider_moves_at_square, get_slider_xray_moves_at_square};
 use crate::backend::types::bitboard::BitBoard;
 use crate::backend::types::moove::{CastleType, Moove};
-use crate::backend::types::piece::Piece::{King, Pawn, Queen, Rook};
+use crate::backend::types::piece::Piece::{Bishop, King, Pawn, Queen, Rook};
 use crate::backend::types::piece::Side::{Black, White};
 use crate::backend::types::piece::{ALL_PIECES, ALL_SIDES, Side};
 use crate::backend::types::square::{Square, back_by_one, get_file};
@@ -38,6 +34,8 @@ pub struct State {
     pub active_side: Side,
     pub half_move_clock: u16,
     pub zobrist_hash: u64,
+    pub diag_pin_mask: BitBoard,
+    pub straight_pin_mask: BitBoard,
 }
 
 // The core of state
@@ -54,6 +52,8 @@ impl State {
             irreversible_data,
             half_move_clock,
             zobrist_hash: 0,
+            diag_pin_mask: BitBoard::new(),
+            straight_pin_mask: BitBoard::new(),
         };
 
         // Piece positions
@@ -88,9 +88,12 @@ impl State {
         });
 
         // Side to move
-        if state.active_side == Side::Black {
+        if state.active_side == Black {
             state.zobrist_hash ^= ZOBRIST_BLACK_TO_MOVE;
         }
+
+        // Pin masks
+        state.generate_pin_masks();
 
         state
     }
@@ -190,7 +193,22 @@ impl State {
         next_state.zobrist_hash ^= ZOBRIST_BLACK_TO_MOVE;
         next_state.active_side = self.active_side.oppo();
         next_state.irreversible_data = next_ir_data;
+
+        next_state.generate_pin_masks();
+
+        next_state.remove_illegal_en_passant_if_pinned();
+
         next_state
+    }
+
+    fn generate_pin_masks(&mut self) {
+        let (straight_pin_mask, diag_pin_mask) =
+            self.build_pin_masks(
+                self.bb_mngr.get_colored_piece_bb(King, self.active_side).next().unwrap(),
+                self.bb_mngr.get_occupied_bb(),
+                self.bb_mngr.get_side_bb(self.active_side.oppo()));
+        self.straight_pin_mask = straight_pin_mask;
+        self.diag_pin_mask = diag_pin_mask;
     }
 
     fn make_move_ep_capture(&mut self, moove: Moove, capture_square: &mut Square) {
@@ -418,6 +436,61 @@ impl State {
         !would_expose_king_to_slider(left_capturing_pawn)
             && !would_expose_king_to_slider(right_capturing_pawn)
     }
+
+
+    fn build_pin_masks(
+        &self,
+        king_square: Square,
+        occupied_bb: BitBoard,
+        enemy_pieces_bb: BitBoard,
+    ) -> (BitBoard, BitBoard) {
+        let straight_xray_bb = get_slider_xray_moves_at_square::<true>(king_square, occupied_bb);
+        let diag_xray_bb = get_slider_xray_moves_at_square::<false>(king_square, occupied_bb);
+
+        let straight_xray_attackers_bb = straight_xray_bb
+            & (self.bb_mngr.get_piece_bb(Rook) | self.bb_mngr.get_piece_bb(Queen))
+            & enemy_pieces_bb;
+
+        let diag_xray_attackers_bb = diag_xray_bb
+            & (self.bb_mngr.get_piece_bb(Bishop) | self.bb_mngr.get_piece_bb(Queen))
+            & enemy_pieces_bb;
+
+        (
+            self.build_pin_mask(straight_xray_attackers_bb, king_square),
+            self.build_pin_mask(diag_xray_attackers_bb, king_square),
+        )
+    }
+
+    fn build_pin_mask(&self, xray_attackers_bb: BitBoard, king_square: Square) -> BitBoard {
+        let mut pin_mask = BitBoard { value: 0 };
+
+        for attacker_square in xray_attackers_bb {
+            // The order of indices is important:
+            // the attacker square is included, while the king square is not.
+            // This keeps capturing the pinning piece legal.
+            pin_mask |= BETWEEN_TABLE[attacker_square as usize][king_square as usize];
+        }
+
+        pin_mask
+    }
+
+    // TODO: THIS BREAKS MY ZOBRIST HASHING. FIX IT.
+    fn remove_illegal_en_passant_if_pinned(&mut self) {
+        let Some(en_passant_square) = self.irreversible_data.en_passant_square else {
+            return;
+        };
+
+        let ep_file = get_file(en_passant_square);
+
+        let captured_pawn_square = back_by_one(en_passant_square, self.active_side);
+        let captured_pawn_bb = BitBoard::new_from_square(captured_pawn_square);
+
+        if (captured_pawn_bb & self.diag_pin_mask).is_not_empty() {
+            self.zobrist_hash ^= ZOBRIST_EP_RNGS[ep_file as usize];
+            self.irreversible_data.en_passant_square = None;
+        }
+    }
+
 }
 
 // A bunch of API helpers
@@ -427,7 +500,11 @@ impl State {
     }
 
     pub fn gen_moves(&mut self) -> Vec<Moove> {
-        moves(self)
+        moves(self, false)
+    }
+
+    pub fn gen_attacks(&mut self) -> Vec<Moove> {
+        moves(self, true)
     }
 }
 

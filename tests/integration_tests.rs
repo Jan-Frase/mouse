@@ -1,6 +1,6 @@
 use mouse::State;
 use mouse::backend::perft::perft;
-use perft_fixtures::perft_fixtures::{FAST_PERFT, LONG_PERFT, NORMAL_PERFT, PerftFixture};
+use perft_fixtures::perft_fixtures::{FAST_PERFT, LONG_PERFT, NORMAL_PERFT, PerftFixture, LONGER_PERFT};
 
 #[test]
 fn test_perft_fast() {
@@ -17,6 +17,11 @@ fn test_perft_normal() {
 // Can be run using 'cargo test -- --ignored'.
 fn test_perft_long() {
     test_perft_fixtures(&LONG_PERFT);
+}
+
+#[test]
+fn test_perft_longer() {
+    test_perft_fixtures(&LONGER_PERFT);
 }
 
 fn test_perft_fixtures(perft_fixtures: &[PerftFixture]) {
@@ -211,13 +216,8 @@ fn test_perft_19() {
     assert_eq!(nodes, 5);
 }
 
-#[test]
-fn test_perft_20() {
-    let mut state = State::new_from_fen("1k4q1/8/8/3pP3/8/1K6/8/8 w - d6 0 1");
-
-    let nodes = perft(&mut state, 1);
-    assert_eq!(nodes, 8);
-}
+// Number 20 was an illegal fen 1k4q1/8/8/3pP3/8/1K6/8/8 w - D6 0 1
+// It confused me, it's gone now.
 
 #[test]
 fn test_perft_21() {

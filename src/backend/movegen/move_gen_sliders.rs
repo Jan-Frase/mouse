@@ -17,6 +17,7 @@ pub fn get_slider_moves(
     enemy_pieces_bb: BitBoard,
     checkmask: BitBoard,
     pin_mask: BitBoard,
+    captures_only_mask: BitBoard,
 ) {
     let unpinned_pieces = piece_bb & !pin_mask;
     let pinned_pieces = piece_bb & pin_mask;
@@ -27,7 +28,7 @@ pub fn get_slider_moves(
         unpinned_pieces,
         friendly_pieces_bb,
         enemy_pieces_bb,
-        checkmask,
+        checkmask & captures_only_mask,
     );
 
     append_slider_moves_for_squares(
@@ -36,7 +37,7 @@ pub fn get_slider_moves(
         pinned_pieces,
         friendly_pieces_bb,
         enemy_pieces_bb,
-        checkmask & pin_mask,
+        checkmask & pin_mask & captures_only_mask,
     );
 }
 

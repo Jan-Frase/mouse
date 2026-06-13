@@ -50,7 +50,7 @@ pub fn root_debug_perft(root_state: &mut State, depth: u8) -> u64 {
     let mut nodes = 0;
 
     // Generate all root moves.
-    let mut moves = moves(root_state);
+    let mut moves = moves(root_state, false);
     // Sort them in the same way as perftree does
     moves.sort();
 

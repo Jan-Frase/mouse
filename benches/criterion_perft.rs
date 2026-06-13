@@ -39,7 +39,7 @@ fn run_criterion_perft(
 pub fn criterion_make_unmake_move(c: &mut Criterion) {
     let mut state =
         State::new_from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQ - 0 1");
-    let moves = moves(&mut state);
+    let moves = state.gen_moves();
 
     let mut group = c.benchmark_group("General make unmake");
     group.throughput(Throughput::Elements(moves.len() as u64));
@@ -62,7 +62,7 @@ pub fn criterion_move_gen(c: &mut Criterion) {
     group.throughput(Throughput::Elements(expected_moves));
     group.bench_function("Move gen", |b| {
         b.iter(|| {
-            let _ = moves(std::hint::black_box(&mut state));
+            let _ = moves(std::hint::black_box(&mut state), false);
         })
     });
     group.finish();
