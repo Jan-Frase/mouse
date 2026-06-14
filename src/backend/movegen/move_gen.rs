@@ -262,4 +262,11 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_01() {
+        let state = State::new_from_fen("rn1qk2r/pppbppbp/3p1np1/8/Q1PP4/2N2N2/PP2PPPP/R1B1KB1R w KQkq - 5 6");
+        let moves = moves(&state, true);
+        assert_eq!(moves.len(), 2);
+    }
 }

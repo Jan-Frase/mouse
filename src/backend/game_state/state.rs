@@ -499,11 +499,11 @@ impl State {
         is_in_check(self)
     }
 
-    pub fn gen_moves(&mut self) -> Vec<Moove> {
+    pub fn gen_moves(&self) -> Vec<Moove> {
         moves(self, false)
     }
 
-    pub fn gen_attacks(&mut self) -> Vec<Moove> {
+    pub fn gen_attacks(&self) -> Vec<Moove> {
         moves(self, true)
     }
 }
